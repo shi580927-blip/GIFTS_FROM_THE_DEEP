@@ -45,50 +45,28 @@ export default class TestFishAtlasScene extends Phaser.Scene {
     const grid = this.add.graphics();
     grid.lineStyle(1, 0xffffff, 0.15);
 
-    const addLivingFish = (x, y, fishName, flipX) => {
-      const sprite = this.add.sprite(
-        x,
-        y,
-        'fish',
-        `${fishName}_f01`
+    const scheduleFishIdle = (sprite, fishName) => {
+      const twitch = () => {
+        const altFrame = Phaser.Math.Between(0, 1) === 0
+          ? `${fishName}_f02`
+          : `${fishName}_f03`;
+
+        sprite.setFrame(altFrame);
+
+        this.time.delayedCall(120, () => {
+          sprite.setFrame(`${fishName}_f01`);
+
+          this.time.delayedCall(
+            Phaser.Math.Between(1100, 2600),
+            twitch
+          );
+        });
+      };
+
+      this.time.delayedCall(
+        Phaser.Math.Between(500, 2200),
+        twitch
       );
-
-      sprite.setOrigin(0.5, 0.5);
-      sprite.setScale(0.28);
-      sprite.setFlipX(flipX);
-
-      // Use a single art frame for idle.
-      // The current f02/f03 images are shape variations, not true in-betweens,
-      // so switching them creates visible jumps. Idle motion is code-only.
-      const baseScale = 0.28;
-      const breathAmount = Phaser.Math.FloatBetween(0.002, 0.004);
-      const yAmount = Phaser.Math.FloatBetween(0.35, 0.8);
-      const angleAmount = Phaser.Math.FloatBetween(0.18, 0.42);
-      const duration = Phaser.Math.Between(1900, 3000);
-
-      this.tweens.add({
-        targets: sprite,
-        scaleX: baseScale + breathAmount,
-        scaleY: baseScale - breathAmount * 0.55,
-        duration,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-        delay: Phaser.Math.Between(0, 900)
-      });
-
-      this.tweens.add({
-        targets: sprite,
-        y: y + yAmount,
-        angle: flipX ? -angleAmount : angleAmount,
-        duration: duration + Phaser.Math.Between(250, 700),
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-        delay: Phaser.Math.Between(0, 1200)
-      });
-
-      return sprite;
     };
 
     for (let row = 0; row < rows; row += 1) {
@@ -106,47 +84,57 @@ export default class TestFishAtlasScene extends Phaser.Scene {
         const typeIndex = layout[row][col];
         const fishName = fishTypes[typeIndex];
 
-        addLivingFish(
+        const sprite = this.add.sprite(
           x,
           y,
-          fishName,
-          (row + col) % 2 === 0
+          'fish',
+          `${fishName}_f01`
         );
+
+        sprite.setOrigin(0.5, 0.5);
+        sprite.setScale(0.28);
+
+        if ((row + col) % 2 === 0) {
+          sprite.setFlipX(true);
+        }
+
+        scheduleFishIdle(sprite, fishName);
       }
     }
 
-    // Puffer stages are shown statically here.
-    // This lets us evaluate the drawings themselves without frame-switch flashing.
-    const pufferY = 275;
-    const pufferXs = [790, 865, 945];
-    const pufferFrames = [
-      'special_puffer_f01',
-      'special_puffer_f02',
-      'special_puffer_f03'
-    ];
-    const pufferScales = [0.30, 0.30, 0.30];
+    const puffer = this.add.sprite(
+      860,
+      280,
+      'specials',
+      'special_puffer_f01'
+    );
 
-    pufferFrames.forEach((frame, index) => {
-      const puffer = this.add.sprite(
-        pufferXs[index],
-        pufferY,
-        'specials',
-        frame
-      );
+    puffer.setOrigin(0.5, 0.5);
+    puffer.setScale(0.42);
 
-      puffer
-        .setOrigin(0.5, 0.5)
-        .setScale(pufferScales[index]);
-    });
+    const runPufferCycle = () => {
+      puffer.setFrame('special_puffer_f02');
 
-    this.add.text(770, 120, 'Puffer stages', {
+      this.time.delayedCall(260, () => {
+        puffer.setFrame('special_puffer_f03');
+
+        this.time.delayedCall(850, () => {
+          puffer.setFrame('special_puffer_f02');
+
+          this.time.delayedCall(260, () => {
+            puffer.setFrame('special_puffer_f01');
+
+            this.time.delayedCall(1300, runPufferCycle);
+          });
+        });
+      });
+    };
+
+    this.time.delayedCall(900, runPufferCycle);
+
+    this.add.text(770, 120, 'Puffer test', {
       fontSize: '24px',
       color: '#ffffff'
-    });
-
-    this.add.text(760, 430, 'Idle: code-only motion, no frame swapping', {
-      fontSize: '18px',
-      color: '#bfefff'
     });
   }
 }
