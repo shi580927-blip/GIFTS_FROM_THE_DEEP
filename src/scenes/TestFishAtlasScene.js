@@ -37,7 +37,7 @@ export default class TestFishAtlasScene extends Phaser.Scene {
             { key: 'fish', frame: `${name}_f01` },
             { key: 'fish', frame: `${name}_f03` }
           ],
-          frameRate: 3,
+          frameRate: 2.4,
           repeat: -1
         });
       }
@@ -51,7 +51,7 @@ export default class TestFishAtlasScene extends Phaser.Scene {
           { key: 'specials', frame: 'special_puffer_f02' },
           { key: 'specials', frame: 'special_puffer_f03' }
         ],
-        frameRate: 5,
+        frameRate: 4,
         repeat: 0
       });
     }
@@ -64,7 +64,7 @@ export default class TestFishAtlasScene extends Phaser.Scene {
           { key: 'specials', frame: 'special_puffer_f02' },
           { key: 'specials', frame: 'special_puffer_f01' }
         ],
-        frameRate: 5,
+        frameRate: 4,
         repeat: 0
       });
     }
@@ -109,21 +109,12 @@ export default class TestFishAtlasScene extends Phaser.Scene {
           `${fishName}_f01`
         );
 
-        // 352 px virtual source frame -> about 99 px on screen.
+        sprite.setOrigin(0.5, 0.5);
         sprite.setScale(0.28);
         sprite.play(`${fishName}_idle`);
 
-        this.tweens.add({
-          targets: sprite,
-          y: y + Phaser.Math.Between(-2, 2),
-          angle: Phaser.Math.Between(-1, 1),
-          duration: 1200 + Phaser.Math.Between(0, 600),
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut'
-        });
-
-        // Direction test. A second set of PNGs is not required.
+        // No position/rotation tween here.
+        // This scene now tests frame alignment only.
         if ((row + col) % 2 === 0) {
           sprite.setFlipX(true);
         }
@@ -137,6 +128,7 @@ export default class TestFishAtlasScene extends Phaser.Scene {
       'special_puffer_f01'
     );
 
+    puffer.setOrigin(0.5, 0.5);
     puffer.setScale(0.42);
 
     this.time.addEvent({
@@ -145,16 +137,7 @@ export default class TestFishAtlasScene extends Phaser.Scene {
       callback: () => {
         puffer.play('puffer_inflate');
 
-        this.tweens.add({
-          targets: puffer,
-          scaleX: 0.46,
-          scaleY: 0.46,
-          duration: 250,
-          yoyo: true,
-          ease: 'Back.easeOut'
-        });
-
-        this.time.delayedCall(900, () => {
+        this.time.delayedCall(1100, () => {
           puffer.play('puffer_deflate');
         });
       }
