@@ -1,0 +1,75 @@
+{
+  "frames": {
+    "special_puffer_f01": {
+      "frame": {
+        "x": 8,
+        "y": 8,
+        "w": 248,
+        "h": 198
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 36,
+        "y": 61,
+        "w": 248,
+        "h": 198
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 320
+      }
+    },
+    "special_puffer_f02": {
+      "frame": {
+        "x": 264,
+        "y": 8,
+        "w": 275,
+        "h": 254
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 22,
+        "y": 33,
+        "w": 275,
+        "h": 254
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 320
+      }
+    },
+    "special_puffer_f03": {
+      "frame": {
+        "x": 547,
+        "y": 8,
+        "w": 312,
+        "h": 269
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 4,
+        "y": 26,
+        "w": 312,
+        "h": 269
+      },
+      "sourceSize": {
+        "w": 320,
+        "h": 320
+      }
+    }
+  },
+  "meta": {
+    "app": "OpenAI Ghostwriter",
+    "version": "1.0",
+    "image": "specials_atlas.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 1024,
+      "h": 320
+    },
+    "scale": "1"
+  }
+}
