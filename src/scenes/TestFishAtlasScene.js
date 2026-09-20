@@ -27,48 +27,6 @@ export default class TestFishAtlasScene extends Phaser.Scene {
       'fish_06_clownfish'
     ];
 
-    fishTypes.forEach((name) => {
-      if (!this.anims.exists(`${name}_idle`)) {
-        this.anims.create({
-          key: `${name}_idle`,
-          frames: [
-            { key: 'fish', frame: `${name}_f01` },
-            { key: 'fish', frame: `${name}_f02` },
-            { key: 'fish', frame: `${name}_f01` },
-            { key: 'fish', frame: `${name}_f03` }
-          ],
-          frameRate: 2.4,
-          repeat: -1
-        });
-      }
-    });
-
-    if (!this.anims.exists('puffer_inflate')) {
-      this.anims.create({
-        key: 'puffer_inflate',
-        frames: [
-          { key: 'specials', frame: 'special_puffer_f01' },
-          { key: 'specials', frame: 'special_puffer_f02' },
-          { key: 'specials', frame: 'special_puffer_f03' }
-        ],
-        frameRate: 4,
-        repeat: 0
-      });
-    }
-
-    if (!this.anims.exists('puffer_deflate')) {
-      this.anims.create({
-        key: 'puffer_deflate',
-        frames: [
-          { key: 'specials', frame: 'special_puffer_f03' },
-          { key: 'specials', frame: 'special_puffer_f02' },
-          { key: 'specials', frame: 'special_puffer_f01' }
-        ],
-        frameRate: 4,
-        repeat: 0
-      });
-    }
-
     const cellSize = 96;
     const cols = 6;
     const rows = 6;
@@ -87,6 +45,55 @@ export default class TestFishAtlasScene extends Phaser.Scene {
     const grid = this.add.graphics();
     grid.lineStyle(1, 0xffffff, 0.15);
 
+    const createSoftFishIdle = (x, y, fishName, flipX, seedDelay) => {
+      const frameSequence = [
+        `${fishName}_f01`,
+        `${fishName}_f02`,
+        `${fishName}_f01`,
+        `${fishName}_f03`
+      ];
+
+      const a = this.add.sprite(x, y, 'fish', frameSequence[0]);
+      const b = this.add.sprite(x, y, 'fish', frameSequence[0]);
+
+      a.setOrigin(0.5, 0.5).setScale(0.28).setFlipX(flipX);
+      b.setOrigin(0.5, 0.5).setScale(0.28).setFlipX(flipX).setAlpha(0);
+
+      let current = a;
+      let next = b;
+      let index = 0;
+
+      const changeFrame = () => {
+        index = (index + 1) % frameSequence.length;
+        next.setFrame(frameSequence[index]);
+        next.setAlpha(0);
+
+        this.tweens.add({
+          targets: current,
+          alpha: 0,
+          duration: 170,
+          ease: 'Sine.easeInOut'
+        });
+
+        this.tweens.add({
+          targets: next,
+          alpha: 1,
+          duration: 170,
+          ease: 'Sine.easeInOut',
+          onComplete: () => {
+            const oldCurrent = current;
+            current = next;
+            next = oldCurrent;
+
+            const dwell = index === 0 ? 650 : 420;
+            this.time.delayedCall(dwell, changeFrame);
+          }
+        });
+      };
+
+      this.time.delayedCall(seedDelay, changeFrame);
+    };
+
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
         const x = startX + col * cellSize;
@@ -102,46 +109,76 @@ export default class TestFishAtlasScene extends Phaser.Scene {
         const typeIndex = layout[row][col];
         const fishName = fishTypes[typeIndex];
 
-        const sprite = this.add.sprite(
+        createSoftFishIdle(
           x,
           y,
-          'fish',
-          `${fishName}_f01`
+          fishName,
+          (row + col) % 2 === 0,
+          Phaser.Math.Between(0, 900)
         );
-
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setScale(0.28);
-        sprite.play(`${fishName}_idle`);
-
-        // No position/rotation tween here.
-        // This scene now tests frame alignment only.
-        if ((row + col) % 2 === 0) {
-          sprite.setFlipX(true);
-        }
       }
     }
 
-    const puffer = this.add.sprite(
-      860,
-      280,
-      'specials',
-      'special_puffer_f01'
-    );
+    const pufferFrames = [
+      'special_puffer_f01',
+      'special_puffer_f02',
+      'special_puffer_f03'
+    ];
 
-    puffer.setOrigin(0.5, 0.5);
-    puffer.setScale(0.42);
+    const pufferA = this.add.sprite(860, 280, 'specials', pufferFrames[0]);
+    const pufferB = this.add.sprite(860, 280, 'specials', pufferFrames[0]);
 
-    this.time.addEvent({
-      delay: 1800,
-      loop: true,
-      callback: () => {
-        puffer.play('puffer_inflate');
+    pufferA.setOrigin(0.5, 0.5).setScale(0.42);
+    pufferB.setOrigin(0.5, 0.5).setScale(0.42).setAlpha(0);
 
-        this.time.delayedCall(1100, () => {
-          puffer.play('puffer_deflate');
+    let pufferCurrent = pufferA;
+    let pufferNext = pufferB;
+
+    const crossfadePuffer = (frame, scale, onDone) => {
+      pufferNext.setFrame(frame);
+      pufferNext.setScale(scale);
+      pufferNext.setAlpha(0);
+
+      this.tweens.add({
+        targets: pufferCurrent,
+        alpha: 0,
+        duration: 190,
+        ease: 'Sine.easeInOut'
+      });
+
+      this.tweens.add({
+        targets: pufferNext,
+        alpha: 1,
+        duration: 190,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          const oldCurrent = pufferCurrent;
+          pufferCurrent = pufferNext;
+          pufferNext = oldCurrent;
+          if (onDone) onDone();
+        }
+      });
+    };
+
+    const runPufferCycle = () => {
+      crossfadePuffer(pufferFrames[1], 0.44, () => {
+        this.time.delayedCall(220, () => {
+          crossfadePuffer(pufferFrames[2], 0.46, () => {
+            this.time.delayedCall(750, () => {
+              crossfadePuffer(pufferFrames[1], 0.44, () => {
+                this.time.delayedCall(220, () => {
+                  crossfadePuffer(pufferFrames[0], 0.42, () => {
+                    this.time.delayedCall(900, runPufferCycle);
+                  });
+                });
+              });
+            });
+          });
         });
-      }
-    });
+      });
+    };
+
+    this.time.delayedCall(700, runPufferCycle);
 
     this.add.text(770, 120, 'Puffer test', {
       fontSize: '24px',
