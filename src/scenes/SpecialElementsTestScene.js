@@ -8,7 +8,8 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
     this.load.image('special_star_test', base + 'special_star.png?v=3');
     this.load.image('special_octopus_test', base + 'special_octopus.png?v=3');
     this.load.image('special_pearl_test', base + 'special_pearl_shell.png?v=3');
-    this.load.image('special_seaweed_bubble_test', base + 'special_seaweed_bubble.png?v=3');
+    this.load.image('special_seaweed_bubble_test', base + 'special_seaweed_bubble.png?v=4');
+    this.load.image('special_air_bubble_final_test', base + 'special_air_bubble_final_candidate.png?v=1');
 
     this.load.atlas(
       'specials',
@@ -20,7 +21,7 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor('#05283b');
 
-    this.add.text(500, 26, 'Дары глубин · тест спецэлементов v3', {
+    this.add.text(500, 26, 'Дары глубин · тест спецэлементов v6', {
       fontSize: '24px',
       color: '#ffffff',
       fontFamily: 'Arial, sans-serif'
@@ -905,16 +906,29 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
           centerX: 192,
           centerY: 161,
           bubbleRadius: 108,
-          deformation: 5
+          deformation: 10.5
         }
       );
     }
 
-    // 6. AIR BUBBLE — one soft transparent bubble, edge deforms locally
+    // 6. AIR BUBBLE — approved visual candidate, with its own rim gently deforming
     {
       const [x, y] = positions[5];
-      drawCard(x, y, 'Воздушный пузырь', 'одна мягкая кромка, без второй рамки');
-      createProceduralAirBubble(x, y - 12, 82);
+      drawCard(x, y, 'Воздушный пузырь', 'новый прозрачный пузырь, плывёт его кромка');
+
+      createWarpedImageBubble(
+        x,
+        y - 12,
+        'special_air_bubble_final_test',
+        'runtime_air_bubble_final_v6',
+        0.47,
+        {
+          centerX: 175,
+          centerY: 177,
+          bubbleRadius: 166,
+          deformation: 8.5
+        }
+      );
     }
 
     // 7. VORTEX — circular footprint, reads as a funnel inside a square cell
