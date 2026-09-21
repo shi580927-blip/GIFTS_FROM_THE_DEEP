@@ -71,11 +71,10 @@ export default class TestFishAtlasScene extends Phaser.Scene {
         const rawAngle = Phaser.Math.FloatBetween(-angleMax, angleMax);
         const targetAngle = flipX ? -rawAngle : rawAngle;
 
-        this.tweens.add({
+        const tweenConfig = {
           targets: sprite,
           x: targetX,
           y: targetY,
-          angle: targetAngle,
           duration: Phaser.Math.Between(minDuration, maxDuration),
           ease: 'Sine.easeInOut',
           onComplete: () => {
@@ -84,7 +83,13 @@ export default class TestFishAtlasScene extends Phaser.Scene {
               move
             );
           }
-        });
+        };
+
+        if (angleMax > 0) {
+          tweenConfig.angle = targetAngle;
+        }
+
+        this.tweens.add(tweenConfig);
       };
 
       this.time.delayedCall(
@@ -206,7 +211,7 @@ export default class TestFishAtlasScene extends Phaser.Scene {
           animatedFish.has(fishName)
             ? {
                 yMax: 0.48,
-                angleMax: 0.18,
+                angleMax: fishName === 'fish_06_clownfish' ? 0 : 0.18,
                 xMax: 0.08,
                 minDuration: 2400,
                 maxDuration: 4300
