@@ -335,44 +335,354 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       return { outline, highlight, state };
     };
 
+
+    // Deforms the ORIGINAL bubble image itself. No extra ring is drawn around it.
+    // The source image is split into narrow angular sectors and each sector is
+    // moved radially by only a few source pixels, so the painted rim itself "floats".
+    const createWarpedImageBubble = (
+      x,
+      y,
+      sourceKey,
+      runtimeKey,
+      displayScale,
+      {
+        centerX = 192,
+        centerY = 161,
+        bubbleRadius = 108,
+        deformation = 5
+      } = {}
+    ) => {
+      if (this.textures.exists(runtimeKey)) {
+        this.textures.remove(runtimeKey);
+      }
+
+      const source = this.textures.get(sourceKey).getSourceImage();
+      const width = source.width;
+      const height = source.height;
+      const texture = this.textures.createCanvas(runtimeKey, width, height);
+      const ctx = texture.context;
+
+      const state = {
+        upperLeft: 0,
+        top: 0,
+        lowerLeft: 0,
+        bottom: 0,
+        right: 0
+      };
+
+      const centers = {
+        upperLeft: Math.PI * 1.25,
+        top: Math.PI * 1.50,
+        lowerLeft: Math.PI * 0.75,
+        bottom: Math.PI * 0.50,
+        right: 0
+      };
+
+      const angleDistance = (a, b) => {
+        let d = a - b;
+        while (d > Math.PI) d -= Math.PI * 2;
+        while (d < -Math.PI) d += Math.PI * 2;
+        return d;
+      };
+
+      const offsetAt = (a) => {
+        let offset = 0;
+        for (const key of Object.keys(centers)) {
+          const d = angleDistance(a, centers[key]);
+          const widthRad = key === 'top' ? 0.23 : 0.20;
+          offset += state[key] * Math.exp(-(d * d) / (2 * widthRad * widthRad));
+        }
+        return offset;
+      };
+
+      let lastDraw = 0;
+
+      const redraw = (force = false) => {
+        const now = performance.now();
+        if (!force && now - lastDraw < 42) return;
+        lastDraw = now;
+
+        ctx.clearRect(0, 0, width, height);
+
+        const sectors = 56;
+        const farRadius = Math.max(width, height) * 1.7;
+
+        for (let i = 0; i < sectors; i += 1) {
+          const a0 = (i / sectors) * Math.PI * 2;
+          const a1 = ((i + 1) / sectors) * Math.PI * 2;
+          const mid = (a0 + a1) * 0.5;
+          const localOffset = offsetAt(mid);
+          const radialScale = 1 + localOffset / bubbleRadius;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.arc(
+            centerX,
+            centerY,
+            farRadius,
+            a0 - 0.002,
+            a1 + 0.002
+          );
+          ctx.closePath();
+          ctx.clip();
+
+          ctx.translate(centerX, centerY);
+          ctx.scale(radialScale, radialScale);
+          ctx.drawImage(source, -centerX, -centerY, width, height);
+          ctx.restore();
+        }
+
+        texture.refresh();
+      };
+
+      const profiles = [
+        {
+          upperLeft: deformation,
+          top: -deformation * 0.50,
+          lowerLeft: 0,
+          bottom: deformation * 0.38,
+          right: 0
+        },
+        {
+          upperLeft: 0,
+          top: deformation * 0.58,
+          lowerLeft: -deformation * 0.32,
+          bottom: deformation * 0.18,
+          right: deformation * 0.42
+        },
+        {
+          upperLeft: -deformation * 0.26,
+          top: 0,
+          lowerLeft: deformation * 0.62,
+          bottom: -deformation * 0.30,
+          right: deformation * 0.22
+        }
+      ];
+
+      const zero = {
+        upperLeft: 0,
+        top: 0,
+        lowerLeft: 0,
+        bottom: 0,
+        right: 0
+      };
+
+      let profileIndex = 0;
+
+      const tweenProfile = (target, duration, done) => {
+        this.tweens.add({
+          targets: state,
+          ...target,
+          duration,
+          ease: 'Sine.easeInOut',
+          onUpdate: () => redraw(false),
+          onComplete: done
+        });
+      };
+
+      const cycle = () => {
+        const profile = profiles[profileIndex % profiles.length];
+        profileIndex += 1;
+
+        tweenProfile(profile, Phaser.Math.Between(1600, 2200), () => {
+          this.time.delayedCall(Phaser.Math.Between(180, 420), () => {
+            tweenProfile(zero, Phaser.Math.Between(1600, 2200), () => {
+              this.time.delayedCall(Phaser.Math.Between(650, 1200), cycle);
+            });
+          });
+        });
+      };
+
+      redraw(true);
+      const image = this.add.image(x, y, runtimeKey).setScale(displayScale);
+      this.time.delayedCall(Phaser.Math.Between(300, 900), cycle);
+
+      return image;
+    };
+
+    // A single code-drawn air bubble. Its soft edge IS the bubble; there is no
+    // second blue/cyan ring around it.
+    const createProceduralAirBubble = (x, y, radius = 82) => {
+      const size = 210;
+      const cx = size / 2;
+      const cy = size / 2;
+      const key = 'runtime_air_bubble_v4';
+
+      if (this.textures.exists(key)) {
+        this.textures.remove(key);
+      }
+
+      const texture = this.textures.createCanvas(key, size, size);
+      const ctx = texture.context;
+
+      const state = {
+        upperLeft: 0,
+        bottom: 0,
+        right: 0
+      };
+
+      const angleDistance = (a, b) => {
+        let d = a - b;
+        while (d > Math.PI) d -= Math.PI * 2;
+        while (d < -Math.PI) d += Math.PI * 2;
+        return d;
+      };
+
+      const offsetAt = (a) => {
+        const gaussian = (center, amp, w) => {
+          const d = angleDistance(a, center);
+          return amp * Math.exp(-(d * d) / (2 * w * w));
+        };
+
+        return (
+          gaussian(Math.PI * 1.25, state.upperLeft, 0.21) +
+          gaussian(Math.PI * 0.50, state.bottom, 0.22) +
+          gaussian(0, state.right, 0.20)
+        );
+      };
+
+      const makePath = () => {
+        const p = new Path2D();
+        const segments = 120;
+
+        for (let i = 0; i <= segments; i += 1) {
+          const a = (i / segments) * Math.PI * 2;
+          const rr = radius + offsetAt(a);
+          const px = cx + Math.cos(a) * rr;
+          const py = cy + Math.sin(a) * rr;
+          if (i === 0) p.moveTo(px, py);
+          else p.lineTo(px, py);
+        }
+
+        p.closePath();
+        return p;
+      };
+
+      let lastDraw = 0;
+
+      const redraw = (force = false) => {
+        const now = performance.now();
+        if (!force && now - lastDraw < 42) return;
+        lastDraw = now;
+
+        ctx.clearRect(0, 0, size, size);
+        const path = makePath();
+
+        // Almost invisible water body.
+        const fill = ctx.createRadialGradient(cx - 22, cy - 26, 5, cx, cy, radius);
+        fill.addColorStop(0, 'rgba(255,255,255,0.030)');
+        fill.addColorStop(0.60, 'rgba(180,235,250,0.010)');
+        fill.addColorStop(1, 'rgba(230,250,255,0.032)');
+        ctx.fillStyle = fill;
+        ctx.fill(path);
+
+        // One soft rim made of stacked strokes on the SAME path.
+        ctx.strokeStyle = 'rgba(220,246,255,0.070)';
+        ctx.lineWidth = 10;
+        ctx.stroke(path);
+
+        ctx.strokeStyle = 'rgba(240,252,255,0.145)';
+        ctx.lineWidth = 5;
+        ctx.stroke(path);
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.52)';
+        ctx.lineWidth = 1.35;
+        ctx.stroke(path);
+
+        // Fading specular arc, not a second circular border.
+        ctx.save();
+        ctx.lineCap = 'round';
+        const grad = ctx.createLinearGradient(cx - 58, cy - 58, cx - 4, cy - 18);
+        grad.addColorStop(0, 'rgba(255,255,255,0)');
+        grad.addColorStop(0.35, 'rgba(255,255,255,0.24)');
+        grad.addColorStop(0.70, 'rgba(255,255,255,0.15)');
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 7.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius - 5, Math.PI * 1.09, Math.PI * 1.40);
+        ctx.stroke();
+        ctx.restore();
+
+        texture.refresh();
+      };
+
+      const zero = { upperLeft: 0, bottom: 0, right: 0 };
+      const profiles = [
+        { upperLeft: 4.2, bottom: 2.4, right: -1.4 },
+        { upperLeft: -2.6, bottom: 3.6, right: 2.2 },
+        { upperLeft: 2.0, bottom: -2.8, right: 3.2 }
+      ];
+
+      let profileIndex = 0;
+
+      const tweenState = (target, duration, done) => {
+        this.tweens.add({
+          targets: state,
+          ...target,
+          duration,
+          ease: 'Sine.easeInOut',
+          onUpdate: () => redraw(false),
+          onComplete: done
+        });
+      };
+
+      const cycle = () => {
+        const p = profiles[profileIndex % profiles.length];
+        profileIndex += 1;
+
+        tweenState(p, Phaser.Math.Between(1650, 2300), () => {
+          this.time.delayedCall(Phaser.Math.Between(180, 420), () => {
+            tweenState(zero, Phaser.Math.Between(1650, 2300), () => {
+              this.time.delayedCall(Phaser.Math.Between(650, 1200), cycle);
+            });
+          });
+        });
+      };
+
+      redraw(true);
+      const bubble = this.add.image(x, y, key);
+      this.time.delayedCall(500, cycle);
+      return bubble;
+    };
+
     const addShellSweep = (x, y) => {
       const glint = this.add.container(x - 72, y - 7);
 
-      const strip1 = this.add.rectangle(0, 0, 12, 104, 0xffffff, 0.00).setAngle(20);
-      const strip2 = this.add.rectangle(-7, 0, 5, 104, 0xffffff, 0.00).setAngle(20);
-      const strip3 = this.add.rectangle(8, 0, 5, 104, 0xffffff, 0.00).setAngle(20);
-
-      strip1.setBlendMode(Phaser.BlendModes.ADD);
-      strip2.setBlendMode(Phaser.BlendModes.ADD);
-      strip3.setBlendMode(Phaser.BlendModes.ADD);
+      const strip1 = this.add.rectangle(0, 0, 13, 112, 0xffffff, 0.20).setAngle(20);
+      const strip2 = this.add.rectangle(-8, 0, 5, 112, 0xffffff, 0.09).setAngle(20);
+      const strip3 = this.add.rectangle(8, 0, 5, 112, 0xffffff, 0.07).setAngle(20);
       glint.add([strip1, strip2, strip3]);
 
-      const maskShape = this.make.graphics({ x: 0, y: 0, add: false });
-      maskShape.fillStyle(0xffffff);
-      maskShape.fillEllipse(x, y - 8, 114, 98);
-      glint.setMask(maskShape.createGeometryMask());
+      // Exact alpha silhouette of the shell image: the glint cannot leave it.
+      const maskSource = this.make.image({
+        x,
+        y,
+        key: 'special_pearl_test',
+        add: false
+      }).setScale(0.45);
+
+      const shellMask = maskSource.createBitmapMask();
+      glint.setMask(shellMask);
 
       const sweep = () => {
-        glint.x = x - 74;
+        glint.x = x - 76;
         glint.alpha = 0;
-
-        strip1.setFillStyle(0xffffff, 0.22);
-        strip2.setFillStyle(0xffffff, 0.10);
-        strip3.setFillStyle(0xffffff, 0.08);
 
         this.tweens.add({
           targets: glint,
-          x: x + 74,
-          alpha: { from: 0, to: 1 },
-          duration: 760,
+          x: x + 76,
+          alpha: { from: 0, to: 0.95 },
+          duration: 790,
           ease: 'Sine.easeInOut',
           onComplete: () => {
             this.tweens.add({
               targets: glint,
               alpha: 0,
-              duration: 220,
+              duration: 180,
               onComplete: () => {
-                this.time.delayedCall(Phaser.Math.Between(2400, 4200), sweep);
+                this.time.delayedCall(Phaser.Math.Between(2500, 4300), sweep);
               }
             });
           }
@@ -382,50 +692,96 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       this.time.delayedCall(1100, sweep);
     };
 
-    // A circular top-down funnel. Fits comfortably inside a square cell.
+    // Circular top-down funnel with broad misty strokes that fade and taper.
     const createCircularVortex = (x, y) => {
       const container = this.add.container(x, y);
       const g = this.add.graphics();
 
-      const drawArm = (offset, color, alpha, width, r0) => {
-        g.lineStyle(width, color, alpha);
-        g.beginPath();
+      const smoothstep = (t) => t * t * (3 - 2 * t);
 
-        const turns = Math.PI * 4.1;
-        const steps = 112;
+      const drawTaperedSpiral = (
+        offset,
+        color,
+        maxAlpha,
+        maxWidth,
+        r0,
+        turns = Math.PI * 4.1
+      ) => {
+        const steps = 96;
+        let prev = null;
 
         for (let i = 0; i <= steps; i += 1) {
           const t = i / steps;
           const a = offset + t * turns;
-          const r = Phaser.Math.Linear(r0, 7, t);
+          const r = Phaser.Math.Linear(r0, 8, t);
           const px = Math.cos(a) * r;
-          const py = Math.sin(a) * r; // deliberately circular, no Y squashing
-          if (i === 0) g.moveTo(px, py);
-          else g.lineTo(px, py);
-        }
+          const py = Math.sin(a) * r;
 
-        g.strokePath();
+          if (prev) {
+            // Broad and foggy near the middle, dissolving at both ends.
+            const fadeIn = smoothstep(Math.min(1, t / 0.20));
+            const fadeOut = smoothstep(Math.min(1, (1 - t) / 0.18));
+            const envelope = Math.max(0, fadeIn * fadeOut);
+
+            // Wide mist under-stroke.
+            g.lineStyle(
+              maxWidth * (1.75 - 0.85 * t),
+              color,
+              maxAlpha * 0.16 * envelope
+            );
+            g.beginPath();
+            g.moveTo(prev.x, prev.y);
+            g.lineTo(px, py);
+            g.strokePath();
+
+            // Main soft body.
+            g.lineStyle(
+              maxWidth * (1.10 - 0.50 * t),
+              color,
+              maxAlpha * 0.48 * envelope
+            );
+            g.beginPath();
+            g.moveTo(prev.x, prev.y);
+            g.lineTo(px, py);
+            g.strokePath();
+
+            // Narrow luminous core; it disappears sooner at the ends.
+            const coreEnvelope = Math.pow(envelope, 1.35);
+            g.lineStyle(
+              Math.max(1.0, maxWidth * (0.44 - 0.16 * t)),
+              0xffffff,
+              maxAlpha * 0.42 * coreEnvelope
+            );
+            g.beginPath();
+            g.moveTo(prev.x, prev.y);
+            g.lineTo(px, py);
+            g.strokePath();
+          }
+
+          prev = { x: px, y: py };
+        }
       };
 
-      drawArm(0.0, 0xcafcff, 0.78, 5.0, 70);
-      drawArm(Math.PI * 0.66, 0x6ee4f4, 0.58, 4.2, 66);
-      drawArm(Math.PI * 1.32, 0xffffff, 0.46, 2.6, 73);
-      drawArm(Math.PI * 0.20, 0x269fca, 0.32, 7.5, 60);
+      drawTaperedSpiral(0.00, 0x8feaf5, 0.82, 8.2, 72);
+      drawTaperedSpiral(Math.PI * 0.66, 0x52cfe4, 0.72, 7.2, 67);
+      drawTaperedSpiral(Math.PI * 1.32, 0xb9f8ff, 0.58, 5.2, 74);
+      drawTaperedSpiral(Math.PI * 0.20, 0x2c9fc6, 0.48, 9.4, 61);
 
-      const holeOuter = this.add.circle(0, 0, 18, 0x063346, 0.72);
-      const holeInner = this.add.circle(0, 0, 8, 0x010d13, 0.95);
+      const holeGlow = this.add.circle(0, 0, 22, 0x174a5c, 0.28);
+      const holeOuter = this.add.circle(0, 0, 15, 0x052b3b, 0.62);
+      const holeInner = this.add.circle(0, 0, 7, 0x010d13, 0.94);
 
-      container.add([g, holeOuter, holeInner]);
+      container.add([g, holeGlow, holeOuter, holeInner]);
 
       for (let i = 0; i < 5; i += 1) {
         const a = (i / 5) * Math.PI * 2;
-        const r = 58 + (i % 2) * 8;
+        const r = 57 + (i % 2) * 8;
         const drop = this.add.circle(
           Math.cos(a) * r,
           Math.sin(a) * r,
-          1.8 + (i % 2) * 0.6,
+          1.6 + (i % 2) * 0.6,
           0xe4fdff,
-          0.42
+          0.28
         );
         drop.setBlendMode(Phaser.BlendModes.ADD);
         container.add(drop);
@@ -440,9 +796,9 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       });
 
       this.tweens.add({
-        targets: g,
-        scale: { from: 0.97, to: 1.025 },
-        duration: 2700,
+        targets: [g, holeGlow],
+        scale: { from: 0.975, to: 1.025 },
+        duration: 2850,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
@@ -534,63 +890,31 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       addShellSweep(x, y - 8);
     }
 
-    // 5. SEAWEED BUBBLE — true sphere + local rim bends only
+    // 5. SEAWEED BUBBLE — deform the painted bubble itself, no ring around it
     {
       const [x, y] = positions[4];
-      drawCard(x, y, 'Пузырь с водорослями', 'круглый шар, гуляет только часть кромки');
+      drawCard(x, y, 'Пузырь с водорослями', 'плывёт кромка самого изображения');
 
-      const content = this.add.image(x, y - 12, 'special_seaweed_bubble_test').setScale(0.69);
-
-      const maskShape = this.make.graphics({ x: 0, y: 0, add: false });
-      maskShape.fillStyle(0xffffff);
-      maskShape.fillCircle(x, y - 12, 73);
-      content.setMask(maskShape.createGeometryMask());
-
-      createRoundBubble(x, y - 12, 82, {
-        deformation: 5.0,
-        lineAlpha: 0.92,
-        fillAlpha: 0.036,
-        phaseDelay: 100
-      });
-
-      // The seaweed itself stays almost unchanged.
-      // The visible distortion belongs to the bubble rim, as in the sketch.
-      this.tweens.add({
-        targets: content,
-        x: { from: x - 0.35, to: x + 0.35 },
-        y: { from: y - 12.35, to: y - 11.65 },
-        duration: 3900,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut'
-      });
+      createWarpedImageBubble(
+        x,
+        y - 12,
+        'special_seaweed_bubble_test',
+        'runtime_seaweed_bubble_v5',
+        0.69,
+        {
+          centerX: 192,
+          centerY: 161,
+          bubbleRadius: 108,
+          deformation: 5
+        }
+      );
     }
 
-    // 6. AIR BUBBLE — also a true round sphere; no coloured enclosing ring
+    // 6. AIR BUBBLE — one soft transparent bubble, edge deforms locally
     {
       const [x, y] = positions[5];
-      drawCard(x, y, 'Воздушный пузырь', 'круглый прозрачный шар');
-
-      createRoundBubble(x, y - 12, 82, {
-        deformation: 3.8,
-        lineAlpha: 0.80,
-        fillAlpha: 0.020,
-        phaseDelay: 560
-      });
-
-      const glint1 = this.add.ellipse(x - 30, y - 48, 30, 9, 0xffffff, 0.18).setAngle(-28);
-      const glint2 = this.add.circle(x + 33, y + 22, 3.2, 0xffffff, 0.16);
-      glint1.setBlendMode(Phaser.BlendModes.ADD);
-      glint2.setBlendMode(Phaser.BlendModes.ADD);
-
-      this.tweens.add({
-        targets: [glint1, glint2],
-        alpha: { from: 0.08, to: 0.22 },
-        duration: 1900,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut'
-      });
+      drawCard(x, y, 'Воздушный пузырь', 'одна мягкая кромка, без второй рамки');
+      createProceduralAirBubble(x, y - 12, 82);
     }
 
     // 7. VORTEX — circular footprint, reads as a funnel inside a square cell
