@@ -1,0 +1,136 @@
+name: Refine clownfish head counter-bend
+
+on:
+  push:
+    paths:
+      - ".github/workflows/refine_clownfish_head.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install image tooling
+        run: python -m pip install --quiet pillow numpy
+
+      - name: Bend clownfish head opposite to tail curl
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, math
+          import numpy as np
+          from PIL import Image
+
+          root = Path(".")
+          src_dir = root / "assets_source/fish/animation_frames"
+          atlas_path = root / "assets/atlas/fish/fish_atlas.png"
+          json_path = root / "assets/atlas/fish/fish_atlas.json"
+
+          # Tail curl is strongest near the middle of the 7-frame cycle.
+          # The front/head gets a small opposite bend: almost none at rest,
+          # strongest at f04, then returns smoothly.
+          angles_deg = {
+              "fish_06_clownfish_f01": 0.0,
+              "fish_06_clownfish_f02": 0.75,
+              "fish_06_clownfish_f03": 1.55,
+              "fish_06_clownfish_f04": 2.45,
+              "fish_06_clownfish_f05": 1.55,
+              "fish_06_clownfish_f06": 0.75,
+              "fish_06_clownfish_f07": 0.0,
+          }
+
+          pivot_x = 218.0
+          pivot_y = 176.0
+          blend_start = 210.0
+          blend_end = 302.0
+
+          def smoothstep(t):
+              t = np.clip(t, 0.0, 1.0)
+              return t * t * (3.0 - 2.0 * t)
+
+          def bilinear_rgba(arr, sx, sy):
+              h, w, c = arr.shape
+              x0 = np.floor(sx).astype(np.int32)
+              y0 = np.floor(sy).astype(np.int32)
+              x1 = x0 + 1
+              y1 = y0 + 1
+
+              valid = (x0 >= 0) & (y0 >= 0) & (x1 < w) & (y1 < h)
+
+              x0c = np.clip(x0, 0, w - 1)
+              x1c = np.clip(x1, 0, w - 1)
+              y0c = np.clip(y0, 0, h - 1)
+              y1c = np.clip(y1, 0, h - 1)
+
+              wa = (x1 - sx) * (y1 - sy)
+              wb = (sx - x0) * (y1 - sy)
+              wc = (x1 - sx) * (sy - y0)
+              wd = (sx - x0) * (sy - y0)
+
+              out = (
+                  arr[y0c, x0c] * wa[..., None] +
+                  arr[y0c, x1c] * wb[..., None] +
+                  arr[y1c, x0c] * wc[..., None] +
+                  arr[y1c, x1c] * wd[..., None]
+              )
+              out[~valid] = 0
+              return np.clip(out, 0, 255).astype(np.uint8)
+
+          def bend_head(im, max_angle_deg):
+              if abs(max_angle_deg) < 1e-6:
+                  return im.copy()
+
+              arr = np.asarray(im.convert("RGBA"), dtype=np.float32)
+              h, w, _ = arr.shape
+              yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+
+              weight = smoothstep((xx - blend_start) / (blend_end - blend_start))
+              theta = np.deg2rad(max_angle_deg) * weight
+
+              dx = xx - pivot_x
+              dy = yy - pivot_y
+              cos_t = np.cos(theta)
+              sin_t = np.sin(theta)
+
+              # Inverse map for a clockwise local bend in image coordinates.
+              sx = pivot_x + cos_t * dx + sin_t * dy
+              sy = pivot_y - sin_t * dx + cos_t * dy
+
+              warped = bilinear_rgba(arr, sx, sy)
+              return Image.fromarray(warped, mode="RGBA")
+
+          with open(json_path, "r", encoding="utf-8") as f:
+              atlas_json = json.load(f)
+
+          atlas = Image.open(atlas_path).convert("RGBA")
+
+          for frame_name, angle in angles_deg.items():
+              path = src_dir / f"{frame_name}.png"
+              original = Image.open(path).convert("RGBA")
+              refined = bend_head(original, angle)
+              refined.save(path)
+
+              box = atlas_json["frames"][frame_name]["frame"]
+              atlas.paste(refined, (box["x"], box["y"]), refined)
+
+          atlas.save(atlas_path)
+          print("Applied subtle opposite head bend to clownfish frames.")
+          PY
+
+      - name: Commit refined clownfish
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets_source/fish/animation_frames/fish_06_clownfish_f*.png assets/atlas/fish/fish_atlas.png
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "Add subtle counter-bend to clownfish head"
+          git push
