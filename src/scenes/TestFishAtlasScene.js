@@ -6,14 +6,14 @@ export default class TestFishAtlasScene extends Phaser.Scene {
   preload() {
     this.load.atlas(
       'fish',
-      'assets/atlas/fish/fish_atlas.png?v=20260921-refined-v2',
-      'assets/atlas/fish/fish_atlas.json?v=20260921-refined-v2'
+      'assets/atlas/fish/fish_atlas.png?v=20260921-clown-head-v3',
+      'assets/atlas/fish/fish_atlas.json?v=20260921-clown-head-v3'
     );
 
     this.load.atlas(
       'specials',
-      'assets/atlas/specials/specials_atlas.png?v=20260921-refined-v2',
-      'assets/atlas/specials/specials_atlas.json?v=20260921-refined-v2'
+      'assets/atlas/specials/specials_atlas.png?v=20260921-clown-head-v3',
+      'assets/atlas/specials/specials_atlas.json?v=20260921-clown-head-v3'
     );
   }
 
