@@ -1,4 +1,4 @@
-import TestFishAtlasScene from './scenes/TestFishAtlasScene.js';
+import TestFishAtlasScene from './scenes/TestFishAtlasScene.js?v=20260921-static-sway-v2';
 
 const config = {
   type: Phaser.AUTO,
