@@ -60,7 +60,7 @@
         "h": 352
       }
     },
-    "fish_02_blue_tang_f01": {
+    "fish_01_goldfish_f04": {
       "frame": {
         "x": 1072,
         "y": 4,
@@ -80,7 +80,7 @@
         "h": 352
       }
     },
-    "fish_03_moorish_idol_f01": {
+    "fish_01_goldfish_f05": {
       "frame": {
         "x": 1428,
         "y": 4,
@@ -100,7 +100,7 @@
         "h": 352
       }
     },
-    "fish_04_white_angelfish_f01": {
+    "fish_01_goldfish_f06": {
       "frame": {
         "x": 4,
         "y": 360,
@@ -120,7 +120,7 @@
         "h": 352
       }
     },
-    "fish_05_yellow_tang_f01": {
+    "fish_01_goldfish_f07": {
       "frame": {
         "x": 360,
         "y": 360,
@@ -140,7 +140,7 @@
         "h": 352
       }
     },
-    "fish_06_clownfish_f01": {
+    "fish_02_blue_tang_f01": {
       "frame": {
         "x": 716,
         "y": 360,
@@ -160,7 +160,7 @@
         "h": 352
       }
     },
-    "fish_06_clownfish_f02": {
+    "fish_03_moorish_idol_f01": {
       "frame": {
         "x": 1072,
         "y": 360,
@@ -180,10 +180,170 @@
         "h": 352
       }
     },
-    "fish_06_clownfish_f03": {
+    "fish_04_white_angelfish_f01": {
       "frame": {
         "x": 1428,
         "y": 360,
+        "w": 352,
+        "h": 352
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
+      },
+      "sourceSize": {
+        "w": 352,
+        "h": 352
+      }
+    },
+    "fish_05_yellow_tang_f01": {
+      "frame": {
+        "x": 4,
+        "y": 716,
+        "w": 352,
+        "h": 352
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
+      },
+      "sourceSize": {
+        "w": 352,
+        "h": 352
+      }
+    },
+    "fish_06_clownfish_f01": {
+      "frame": {
+        "x": 360,
+        "y": 716,
+        "w": 352,
+        "h": 352
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
+      },
+      "sourceSize": {
+        "w": 352,
+        "h": 352
+      }
+    },
+    "fish_06_clownfish_f02": {
+      "frame": {
+        "x": 716,
+        "y": 716,
+        "w": 352,
+        "h": 352
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
+      },
+      "sourceSize": {
+        "w": 352,
+        "h": 352
+      }
+    },
+    "fish_06_clownfish_f03": {
+      "frame": {
+        "x": 1072,
+        "y": 716,
+        "w": 352,
+        "h": 352
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
+      },
+      "sourceSize": {
+        "w": 352,
+        "h": 352
+      }
+    },
+    "fish_06_clownfish_f04": {
+      "frame": {
+        "x": 1428,
+        "y": 716,
+        "w": 352,
+        "h": 352
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
+      },
+      "sourceSize": {
+        "w": 352,
+        "h": 352
+      }
+    },
+    "fish_06_clownfish_f05": {
+      "frame": {
+        "x": 4,
+        "y": 1072,
+        "w": 352,
+        "h": 352
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
+      },
+      "sourceSize": {
+        "w": 352,
+        "h": 352
+      }
+    },
+    "fish_06_clownfish_f06": {
+      "frame": {
+        "x": 360,
+        "y": 1072,
+        "w": 352,
+        "h": 352
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
+      },
+      "sourceSize": {
+        "w": 352,
+        "h": 352
+      }
+    },
+    "fish_06_clownfish_f07": {
+      "frame": {
+        "x": 716,
+        "y": 1072,
         "w": 352,
         "h": 352
       },
@@ -203,12 +363,12 @@
   },
   "meta": {
     "app": "OpenAI asset pipeline",
-    "version": "final-fish-v1",
+    "version": "refined-fish-v2",
     "image": "fish_atlas.png",
     "format": "RGBA8888",
     "size": {
       "w": 1784,
-      "h": 716
+      "h": 1428
     },
     "scale": "1"
   }

@@ -59,15 +59,55 @@
         "w": 352,
         "h": 352
       }
+    },
+    "special_puffer_f04": {
+      "frame": {
+        "x": 1072,
+        "y": 4,
+        "w": 352,
+        "h": 352
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
+      },
+      "sourceSize": {
+        "w": 352,
+        "h": 352
+      }
+    },
+    "special_puffer_f05": {
+      "frame": {
+        "x": 1428,
+        "y": 4,
+        "w": 352,
+        "h": 352
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
+      },
+      "sourceSize": {
+        "w": 352,
+        "h": 352
+      }
     }
   },
   "meta": {
     "app": "OpenAI asset pipeline",
-    "version": "final-fish-v1",
+    "version": "refined-puffer-v2",
     "image": "specials_atlas.png",
     "format": "RGBA8888",
     "size": {
-      "w": 1072,
+      "w": 1784,
       "h": 360
     },
     "scale": "1"
