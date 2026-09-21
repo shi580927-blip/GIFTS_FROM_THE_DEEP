@@ -2,18 +2,18 @@
   "frames": {
     "special_puffer_f01": {
       "frame": {
-        "x": 8,
-        "y": 8,
-        "w": 248,
-        "h": 198
+        "x": 4,
+        "y": 4,
+        "w": 352,
+        "h": 352
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 52,
-        "y": 75,
-        "w": 248,
-        "h": 198
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
       },
       "sourceSize": {
         "w": 352,
@@ -22,18 +22,18 @@
     },
     "special_puffer_f02": {
       "frame": {
-        "x": 264,
-        "y": 8,
-        "w": 275,
-        "h": 254
+        "x": 360,
+        "y": 4,
+        "w": 352,
+        "h": 352
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 38,
-        "y": 41,
-        "w": 275,
-        "h": 254
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
       },
       "sourceSize": {
         "w": 352,
@@ -42,18 +42,18 @@
     },
     "special_puffer_f03": {
       "frame": {
-        "x": 547,
-        "y": 8,
-        "w": 312,
-        "h": 269
+        "x": 716,
+        "y": 4,
+        "w": 352,
+        "h": 352
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 20,
-        "y": 41,
-        "w": 312,
-        "h": 269
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
       },
       "sourceSize": {
         "w": 352,
@@ -62,13 +62,13 @@
     }
   },
   "meta": {
-    "app": "OpenAI atlas pipeline",
-    "version": "4.0",
+    "app": "OpenAI asset pipeline",
+    "version": "final-fish-v1",
     "image": "specials_atlas.png",
     "format": "RGBA8888",
     "size": {
-      "w": 1024,
-      "h": 320
+      "w": 1072,
+      "h": 360
     },
     "scale": "1"
   }

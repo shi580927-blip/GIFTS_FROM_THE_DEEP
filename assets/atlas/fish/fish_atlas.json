@@ -2,18 +2,18 @@
   "frames": {
     "fish_01_goldfish_f01": {
       "frame": {
-        "x": 8,
-        "y": 8,
-        "w": 276,
-        "h": 268
+        "x": 4,
+        "y": 4,
+        "w": 352,
+        "h": 352
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 38,
-        "y": 42,
-        "w": 276,
-        "h": 268
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
       },
       "sourceSize": {
         "w": 352,
@@ -22,18 +22,18 @@
     },
     "fish_01_goldfish_f02": {
       "frame": {
-        "x": 292,
-        "y": 8,
-        "w": 274,
-        "h": 268
+        "x": 360,
+        "y": 4,
+        "w": 352,
+        "h": 352
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 39,
-        "y": 42,
-        "w": 274,
-        "h": 268
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
       },
       "sourceSize": {
         "w": 352,
@@ -42,18 +42,18 @@
     },
     "fish_01_goldfish_f03": {
       "frame": {
-        "x": 574,
-        "y": 8,
-        "w": 271,
-        "h": 268
+        "x": 716,
+        "y": 4,
+        "w": 352,
+        "h": 352
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 37,
-        "y": 43,
-        "w": 271,
-        "h": 268
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
       },
       "sourceSize": {
         "w": 352,
@@ -62,58 +62,18 @@
     },
     "fish_02_blue_tang_f01": {
       "frame": {
-        "x": 853,
-        "y": 8,
-        "w": 259,
-        "h": 219
-      },
-      "rotated": false,
-      "trimmed": true,
-      "spriteSourceSize": {
-        "x": 48,
-        "y": 66,
-        "w": 259,
-        "h": 219
-      },
-      "sourceSize": {
+        "x": 1072,
+        "y": 4,
         "w": 352,
         "h": 352
-      }
-    },
-    "fish_02_blue_tang_f02": {
-      "frame": {
-        "x": 1120,
-        "y": 8,
-        "w": 254,
-        "h": 219
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 54,
-        "y": 65,
-        "w": 254,
-        "h": 219
-      },
-      "sourceSize": {
+        "x": 0,
+        "y": 0,
         "w": 352,
         "h": 352
-      }
-    },
-    "fish_02_blue_tang_f03": {
-      "frame": {
-        "x": 1382,
-        "y": 8,
-        "w": 262,
-        "h": 219
-      },
-      "rotated": false,
-      "trimmed": true,
-      "spriteSourceSize": {
-        "x": 41,
-        "y": 62,
-        "w": 262,
-        "h": 219
       },
       "sourceSize": {
         "w": 352,
@@ -122,58 +82,18 @@
     },
     "fish_03_moorish_idol_f01": {
       "frame": {
-        "x": 1652,
-        "y": 8,
-        "w": 251,
-        "h": 283
-      },
-      "rotated": false,
-      "trimmed": true,
-      "spriteSourceSize": {
-        "x": 50,
-        "y": 34,
-        "w": 251,
-        "h": 283
-      },
-      "sourceSize": {
+        "x": 1428,
+        "y": 4,
         "w": 352,
         "h": 352
-      }
-    },
-    "fish_03_moorish_idol_f02": {
-      "frame": {
-        "x": 8,
-        "y": 299,
-        "w": 246,
-        "h": 281
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 55,
-        "y": 35,
-        "w": 246,
-        "h": 281
-      },
-      "sourceSize": {
+        "x": 0,
+        "y": 0,
         "w": 352,
         "h": 352
-      }
-    },
-    "fish_03_moorish_idol_f03": {
-      "frame": {
-        "x": 262,
-        "y": 299,
-        "w": 241,
-        "h": 281
-      },
-      "rotated": false,
-      "trimmed": true,
-      "spriteSourceSize": {
-        "x": 50,
-        "y": 34,
-        "w": 241,
-        "h": 281
       },
       "sourceSize": {
         "w": 352,
@@ -182,58 +102,18 @@
     },
     "fish_04_white_angelfish_f01": {
       "frame": {
-        "x": 511,
-        "y": 299,
-        "w": 252,
-        "h": 310
-      },
-      "rotated": false,
-      "trimmed": true,
-      "spriteSourceSize": {
-        "x": 50,
-        "y": 21,
-        "w": 252,
-        "h": 310
-      },
-      "sourceSize": {
+        "x": 4,
+        "y": 360,
         "w": 352,
         "h": 352
-      }
-    },
-    "fish_04_white_angelfish_f02": {
-      "frame": {
-        "x": 771,
-        "y": 299,
-        "w": 251,
-        "h": 306
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 50,
-        "y": 22,
-        "w": 251,
-        "h": 306
-      },
-      "sourceSize": {
+        "x": 0,
+        "y": 0,
         "w": 352,
         "h": 352
-      }
-    },
-    "fish_04_white_angelfish_f03": {
-      "frame": {
-        "x": 1030,
-        "y": 299,
-        "w": 255,
-        "h": 308
-      },
-      "rotated": false,
-      "trimmed": true,
-      "spriteSourceSize": {
-        "x": 47,
-        "y": 23,
-        "w": 255,
-        "h": 308
       },
       "sourceSize": {
         "w": 352,
@@ -242,58 +122,18 @@
     },
     "fish_05_yellow_tang_f01": {
       "frame": {
-        "x": 1293,
-        "y": 299,
-        "w": 263,
-        "h": 241
-      },
-      "rotated": false,
-      "trimmed": true,
-      "spriteSourceSize": {
-        "x": 44,
-        "y": 55,
-        "w": 263,
-        "h": 241
-      },
-      "sourceSize": {
+        "x": 360,
+        "y": 360,
         "w": 352,
         "h": 352
-      }
-    },
-    "fish_05_yellow_tang_f02": {
-      "frame": {
-        "x": 1564,
-        "y": 299,
-        "w": 267,
-        "h": 242
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 38,
-        "y": 54,
-        "w": 267,
-        "h": 242
-      },
-      "sourceSize": {
+        "x": 0,
+        "y": 0,
         "w": 352,
         "h": 352
-      }
-    },
-    "fish_05_yellow_tang_f03": {
-      "frame": {
-        "x": 8,
-        "y": 617,
-        "w": 266,
-        "h": 241
-      },
-      "rotated": false,
-      "trimmed": true,
-      "spriteSourceSize": {
-        "x": 36,
-        "y": 56,
-        "w": 266,
-        "h": 241
       },
       "sourceSize": {
         "w": 352,
@@ -302,18 +142,18 @@
     },
     "fish_06_clownfish_f01": {
       "frame": {
-        "x": 282,
-        "y": 617,
-        "w": 262,
-        "h": 223
+        "x": 716,
+        "y": 360,
+        "w": 352,
+        "h": 352
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 47,
-        "y": 63,
-        "w": 262,
-        "h": 223
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
       },
       "sourceSize": {
         "w": 352,
@@ -322,18 +162,18 @@
     },
     "fish_06_clownfish_f02": {
       "frame": {
-        "x": 552,
-        "y": 617,
-        "w": 263,
-        "h": 224
+        "x": 1072,
+        "y": 360,
+        "w": 352,
+        "h": 352
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 50,
-        "y": 64,
-        "w": 263,
-        "h": 224
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
       },
       "sourceSize": {
         "w": 352,
@@ -342,18 +182,18 @@
     },
     "fish_06_clownfish_f03": {
       "frame": {
-        "x": 823,
-        "y": 617,
-        "w": 264,
-        "h": 225
+        "x": 1428,
+        "y": 360,
+        "w": 352,
+        "h": 352
       },
       "rotated": false,
-      "trimmed": true,
+      "trimmed": false,
       "spriteSourceSize": {
-        "x": 46,
-        "y": 62,
-        "w": 264,
-        "h": 225
+        "x": 0,
+        "y": 0,
+        "w": 352,
+        "h": 352
       },
       "sourceSize": {
         "w": 352,
@@ -362,13 +202,13 @@
     }
   },
   "meta": {
-    "app": "OpenAI atlas pipeline",
-    "version": "4.0",
+    "app": "OpenAI asset pipeline",
+    "version": "final-fish-v1",
     "image": "fish_atlas.png",
     "format": "RGBA8888",
     "size": {
-      "w": 2048,
-      "h": 896
+      "w": 1784,
+      "h": 716
     },
     "scale": "1"
   }
