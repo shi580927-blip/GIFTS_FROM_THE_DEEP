@@ -152,47 +152,73 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       return d;
     };
 
-    // Starts as a true circle. Only small local arcs of the rim bend in/out.
+    // True sphere -> local rim distortion -> true sphere again.
+    // The whole object never stretches as an ellipse: only short arcs of the rim move.
     const createRoundBubble = (
       x,
       y,
       radius,
       {
-        deformation = 4.5,
-        lineAlpha = 0.78,
-        fillAlpha = 0.025,
+        deformation = 5,
+        lineAlpha = 0.88,
+        fillAlpha = 0.028,
         phaseDelay = 0
       } = {}
     ) => {
       const outline = this.add.graphics();
       const highlight = this.add.graphics();
 
+      // Eight local control zones around the rim.
       const state = {
+        right: 0,
+        lowerRight: 0,
+        bottom: 0,
+        lowerLeft: 0,
+        left: 0,
         upperLeft: 0,
-        lower: 0,
-        right: 0
+        top: 0,
+        upperRight: 0
       };
 
-      const bump = (angle, center, amplitude, width) => {
+      const centers = {
+        right: 0,
+        lowerRight: Math.PI * 0.25,
+        bottom: Math.PI * 0.50,
+        lowerLeft: Math.PI * 0.75,
+        left: Math.PI,
+        upperLeft: Math.PI * 1.25,
+        top: Math.PI * 1.50,
+        upperRight: Math.PI * 1.75
+      };
+
+      const angleDistance = (a, b) => {
+        let d = a - b;
+        while (d > Math.PI) d -= Math.PI * 2;
+        while (d < -Math.PI) d += Math.PI * 2;
+        return d;
+      };
+
+      const bump = (angle, center, amplitude, width = 0.19) => {
+        if (Math.abs(amplitude) < 0.001) return 0;
         const d = angleDistance(angle, center);
         return amplitude * Math.exp(-(d * d) / (2 * width * width));
       };
 
       const offsetAt = (a) => {
-        return (
-          bump(a, Math.PI * 1.25, state.upperLeft, 0.26) +
-          bump(a, Math.PI * 0.50, state.lower, 0.24) +
-          bump(a, 0.04, state.right, 0.22)
-        );
+        let offset = 0;
+        for (const key of Object.keys(centers)) {
+          offset += bump(a, centers[key], state[key]);
+        }
+        return offset;
       };
 
       const redraw = () => {
         outline.clear();
-        outline.fillStyle(0xeafcff, fillAlpha);
-        outline.lineStyle(2.0, 0xf5fdff, lineAlpha);
+        outline.fillStyle(0xf2fdff, fillAlpha);
+        outline.lineStyle(2.15, 0xf7feff, lineAlpha);
         outline.beginPath();
 
-        const segments = 110;
+        const segments = 128;
         for (let i = 0; i <= segments; i += 1) {
           const a = (i / segments) * Math.PI * 2;
           const rr = radius + offsetAt(a);
@@ -206,16 +232,17 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
         outline.fillPath();
         outline.strokePath();
 
-        // One broken reflection only — not another enclosing ring.
+        // One broken highlight: it follows the same changing rim,
+        // so it still reads as one transparent bubble, not two borders.
         highlight.clear();
-        highlight.lineStyle(5.0, 0xffffff, 0.18);
+        highlight.lineStyle(5.2, 0xffffff, 0.19);
         highlight.beginPath();
 
-        const start = Math.PI * 1.08;
-        const end = Math.PI * 1.39;
-        for (let i = 0; i <= 22; i += 1) {
-          const a = Phaser.Math.Linear(start, end, i / 22);
-          const rr = radius - 4 + offsetAt(a) * 0.55;
+        const arcStart = Math.PI * 1.08;
+        const arcEnd = Math.PI * 1.37;
+        for (let i = 0; i <= 24; i += 1) {
+          const a = Phaser.Math.Linear(arcStart, arcEnd, i / 24);
+          const rr = radius - 4 + offsetAt(a) * 0.62;
           const px = x + Math.cos(a) * rr;
           const py = y + Math.sin(a) * rr;
           if (i === 0) highlight.moveTo(px, py);
@@ -224,21 +251,86 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
         highlight.strokePath();
       };
 
-      const morph = () => {
+      const zeroProfile = {
+        right: 0,
+        lowerRight: 0,
+        bottom: 0,
+        lowerLeft: 0,
+        left: 0,
+        upperLeft: 0,
+        top: 0,
+        upperRight: 0
+      };
+
+      // Hand-built profiles based on the user's sketch:
+      // mostly circular, with only 2–3 local arcs displaced by ~5 px.
+      const profiles = [
+        {
+          ...zeroProfile,
+          upperLeft: deformation,
+          top: -deformation * 0.52,
+          left: -deformation * 0.24,
+          bottom: deformation * 0.38
+        },
+        {
+          ...zeroProfile,
+          upperRight: deformation * 0.82,
+          lowerLeft: deformation * 0.55,
+          bottom: -deformation * 0.22,
+          right: -deformation * 0.18
+        },
+        {
+          ...zeroProfile,
+          left: deformation * 0.72,
+          upperLeft: -deformation * 0.34,
+          lowerRight: deformation * 0.40
+        }
+      ];
+
+      let profileIndex = 0;
+
+      const tweenState = (target, duration, done) => {
         this.tweens.add({
           targets: state,
-          upperLeft: Phaser.Math.FloatBetween(-deformation, deformation),
-          lower: Phaser.Math.FloatBetween(-deformation * 0.8, deformation * 0.8),
-          right: Phaser.Math.FloatBetween(-deformation * 0.55, deformation * 0.55),
-          duration: Phaser.Math.Between(2500, 4100),
+          ...target,
+          duration,
           ease: 'Sine.easeInOut',
           onUpdate: redraw,
-          onComplete: () => this.time.delayedCall(Phaser.Math.Between(250, 850), morph)
+          onComplete: done
         });
       };
 
+      const deformThenReturn = () => {
+        const profile = profiles[profileIndex % profiles.length];
+        profileIndex += 1;
+
+        // Circle -> local deformation.
+        tweenState(
+          profile,
+          Phaser.Math.Between(1500, 2100),
+          () => {
+            this.time.delayedCall(
+              Phaser.Math.Between(180, 420),
+              () => {
+                // Local deformation -> exact circle.
+                tweenState(
+                  zeroProfile,
+                  Phaser.Math.Between(1500, 2100),
+                  () => {
+                    this.time.delayedCall(
+                      Phaser.Math.Between(650, 1250),
+                      deformThenReturn
+                    );
+                  }
+                );
+              }
+            );
+          }
+        );
+      };
+
       redraw();
-      this.time.delayedCall(phaseDelay + Phaser.Math.Between(0, 800), morph);
+      this.time.delayedCall(phaseDelay + Phaser.Math.Between(200, 900), deformThenReturn);
 
       return { outline, highlight, state };
     };
@@ -455,19 +547,19 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       content.setMask(maskShape.createGeometryMask());
 
       createRoundBubble(x, y - 12, 82, {
-        deformation: 4.8,
-        lineAlpha: 0.84,
-        fillAlpha: 0.032,
+        deformation: 5.0,
+        lineAlpha: 0.92,
+        fillAlpha: 0.036,
         phaseDelay: 100
       });
 
+      // The seaweed itself stays almost unchanged.
+      // The visible distortion belongs to the bubble rim, as in the sketch.
       this.tweens.add({
         targets: content,
-        x: { from: x - 0.8, to: x + 0.8 },
-        y: { from: y - 12.8, to: y - 11.2 },
-        scaleX: { from: 0.688, to: 0.694 },
-        scaleY: { from: 0.694, to: 0.688 },
-        duration: 3700,
+        x: { from: x - 0.35, to: x + 0.35 },
+        y: { from: y - 12.35, to: y - 11.65 },
+        duration: 3900,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
