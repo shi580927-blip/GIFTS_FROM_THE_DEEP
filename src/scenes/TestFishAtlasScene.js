@@ -6,14 +6,14 @@ export default class TestFishAtlasScene extends Phaser.Scene {
   preload() {
     this.load.atlas(
       'fish',
-      'assets/atlas/fish/fish_atlas.png',
-      'assets/atlas/fish/fish_atlas.json'
+      'assets/atlas/fish/fish_atlas.png?v=20260921-final1',
+      'assets/atlas/fish/fish_atlas.json?v=20260921-final1'
     );
 
     this.load.atlas(
       'specials',
-      'assets/atlas/specials/specials_atlas.png',
-      'assets/atlas/specials/specials_atlas.json'
+      'assets/atlas/specials/specials_atlas.png?v=20260921-final1',
+      'assets/atlas/specials/specials_atlas.json?v=20260921-final1'
     );
   }
 
@@ -26,6 +26,35 @@ export default class TestFishAtlasScene extends Phaser.Scene {
       'fish_05_yellow_tang',
       'fish_06_clownfish'
     ];
+
+    const animatedFish = new Set([
+      'fish_01_goldfish',
+      'fish_06_clownfish'
+    ]);
+
+    this.anims.create({
+      key: 'goldfish_idle',
+      frames: [
+        { key: 'fish', frame: 'fish_01_goldfish_f01' },
+        { key: 'fish', frame: 'fish_01_goldfish_f02' },
+        { key: 'fish', frame: 'fish_01_goldfish_f03' },
+        { key: 'fish', frame: 'fish_01_goldfish_f02' }
+      ],
+      frameRate: 4,
+      repeat: -1
+    });
+
+    this.anims.create({
+      key: 'clownfish_idle',
+      frames: [
+        { key: 'fish', frame: 'fish_06_clownfish_f01' },
+        { key: 'fish', frame: 'fish_06_clownfish_f02' },
+        { key: 'fish', frame: 'fish_06_clownfish_f03' },
+        { key: 'fish', frame: 'fish_06_clownfish_f02' }
+      ],
+      frameRate: 4.5,
+      repeat: -1
+    });
 
     const cellSize = 96;
     const cols = 6;
@@ -45,28 +74,21 @@ export default class TestFishAtlasScene extends Phaser.Scene {
     const grid = this.add.graphics();
     grid.lineStyle(1, 0xffffff, 0.15);
 
-    const scheduleFishIdle = (sprite, fishName) => {
-      const twitch = () => {
-        const altFrame = Phaser.Math.Between(0, 1) === 0
-          ? `${fishName}_f02`
-          : `${fishName}_f03`;
+    const addStaticLivingMotion = (sprite, x, y, flipX) => {
+      const duration = Phaser.Math.Between(2400, 3600);
+      const yShift = Phaser.Math.FloatBetween(0.35, 0.75);
+      const angleShift = Phaser.Math.FloatBetween(0.18, 0.35);
 
-        sprite.setFrame(altFrame);
-
-        this.time.delayedCall(120, () => {
-          sprite.setFrame(`${fishName}_f01`);
-
-          this.time.delayedCall(
-            Phaser.Math.Between(1100, 2600),
-            twitch
-          );
-        });
-      };
-
-      this.time.delayedCall(
-        Phaser.Math.Between(500, 2200),
-        twitch
-      );
+      this.tweens.add({
+        targets: sprite,
+        y: y + yShift,
+        angle: flipX ? -angleShift : angleShift,
+        duration,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+        delay: Phaser.Math.Between(0, 1400)
+      });
     };
 
     for (let row = 0; row < rows; row += 1) {
@@ -83,6 +105,7 @@ export default class TestFishAtlasScene extends Phaser.Scene {
 
         const typeIndex = layout[row][col];
         const fishName = fishTypes[typeIndex];
+        const flipX = (row + col) % 2 === 0;
 
         const sprite = this.add.sprite(
           x,
@@ -92,49 +115,63 @@ export default class TestFishAtlasScene extends Phaser.Scene {
         );
 
         sprite.setOrigin(0.5, 0.5);
-        sprite.setScale(0.28);
+        sprite.setScale(0.27);
+        sprite.setFlipX(flipX);
 
-        if ((row + col) % 2 === 0) {
-          sprite.setFlipX(true);
+        if (animatedFish.has(fishName)) {
+          const animKey = fishName === 'fish_01_goldfish'
+            ? 'goldfish_idle'
+            : 'clownfish_idle';
+
+          this.time.delayedCall(
+            Phaser.Math.Between(0, 900),
+            () => sprite.play(animKey)
+          );
+        } else {
+          addStaticLivingMotion(sprite, x, y, flipX);
         }
-
-        scheduleFishIdle(sprite, fishName);
       }
     }
 
     const puffer = this.add.sprite(
       860,
-      280,
+      285,
       'specials',
       'special_puffer_f01'
     );
 
     puffer.setOrigin(0.5, 0.5);
-    puffer.setScale(0.42);
+    puffer.setScale(0.36);
 
     const runPufferCycle = () => {
       puffer.setFrame('special_puffer_f02');
 
-      this.time.delayedCall(260, () => {
+      this.time.delayedCall(420, () => {
         puffer.setFrame('special_puffer_f03');
 
-        this.time.delayedCall(850, () => {
+        this.time.delayedCall(700, () => {
           puffer.setFrame('special_puffer_f02');
 
-          this.time.delayedCall(260, () => {
+          this.time.delayedCall(420, () => {
             puffer.setFrame('special_puffer_f01');
 
-            this.time.delayedCall(1300, runPufferCycle);
+            this.time.delayedCall(850, runPufferCycle);
           });
         });
       });
     };
 
-    this.time.delayedCall(900, runPufferCycle);
+    this.time.delayedCall(800, runPufferCycle);
 
-    this.add.text(770, 120, 'Puffer test', {
-      fontSize: '24px',
+    this.add.text(735, 105, 'Puffer inflation', {
+      fontSize: '23px',
       color: '#ffffff'
+    });
+
+    this.add.text(710, 455, 'Goldfish + clownfish: frame animation\nOthers: code-only motion', {
+      fontSize: '17px',
+      color: '#bfefff',
+      align: 'center'
     });
   }
 }
