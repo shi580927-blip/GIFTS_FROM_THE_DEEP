@@ -6,14 +6,14 @@ export default class TestFishAtlasScene extends Phaser.Scene {
   preload() {
     this.load.atlas(
       'fish',
-      'assets/atlas/fish/fish_atlas.png?v=20260921-clown-head-v3',
-      'assets/atlas/fish/fish_atlas.json?v=20260921-clown-head-v3'
+      'assets/atlas/fish/fish_atlas.png?v=20260921-static-sway-v3',
+      'assets/atlas/fish/fish_atlas.json?v=20260921-static-sway-v3'
     );
 
     this.load.atlas(
       'specials',
-      'assets/atlas/specials/specials_atlas.png?v=20260921-clown-head-v3',
-      'assets/atlas/specials/specials_atlas.json?v=20260921-clown-head-v3'
+      'assets/atlas/specials/specials_atlas.png?v=20260921-static-sway-v3',
+      'assets/atlas/specials/specials_atlas.json?v=20260921-static-sway-v3'
     );
   }
 
@@ -177,10 +177,10 @@ export default class TestFishAtlasScene extends Phaser.Scene {
               // 1000x720 scene is scaled down strongly on phones, so sub-pixel
               // scene movement was effectively invisible. Keep it gentle, but
               // make the amplitude survive mobile FIT scaling.
-              yMax: Phaser.Math.FloatBetween(2.20, 3.20),
-              angleMax: Phaser.Math.FloatBetween(0.45, 0.70),
-              minDuration: 2800,
-              maxDuration: 4800
+              yMax: Phaser.Math.FloatBetween(3.60, 5.20),
+              angleMax: Phaser.Math.FloatBetween(1.05, 1.55),
+              minDuration: 2600,
+              maxDuration: 4400
             }
           );
         }
@@ -258,7 +258,7 @@ export default class TestFishAtlasScene extends Phaser.Scene {
     this.add.text(
       680,
       455,
-      'Goldfish + clownfish: 7 refined frames, irregular timing\nOthers: visible gentle unsynchronised water sway',
+      'Goldfish + clownfish: 7 refined frames, irregular timing\nOthers: clearly visible gentle unsynchronised water sway',
       {
         fontSize: '16px',
         color: '#bfefff',
