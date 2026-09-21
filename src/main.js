@@ -1,5 +1,5 @@
 import TestFishAtlasScene from './scenes/TestFishAtlasScene.js?v=20260921-static-sway-v3';
-import SpecialElementsTestScene from './scenes/SpecialElementsTestScene.js?v=20260921-specials-v4';
+import SpecialElementsTestScene from './scenes/SpecialElementsTestScene.js?v=20260921-specials-v5';
 
 const params = new URLSearchParams(window.location.search);
 const view = params.get('view');
