@@ -5,22 +5,22 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
 
   preload() {
     const base = 'assets/test/specials/';
-    this.load.image('special_star_test', base + 'special_star.png?v=2');
-    this.load.image('special_octopus_test', base + 'special_octopus.png?v=2');
-    this.load.image('special_pearl_test', base + 'special_pearl_shell.png?v=2');
-    this.load.image('special_seaweed_bubble_test', base + 'special_seaweed_bubble.png?v=2');
+    this.load.image('special_star_test', base + 'special_star.png?v=3');
+    this.load.image('special_octopus_test', base + 'special_octopus.png?v=3');
+    this.load.image('special_pearl_test', base + 'special_pearl_shell.png?v=3');
+    this.load.image('special_seaweed_bubble_test', base + 'special_seaweed_bubble.png?v=3');
 
     this.load.atlas(
       'specials',
-      'assets/atlas/specials/specials_atlas.png?v=20260921-special-test-v2',
-      'assets/atlas/specials/specials_atlas.json?v=20260921-special-test-v2'
+      'assets/atlas/specials/specials_atlas.png?v=20260921-special-test-v3',
+      'assets/atlas/specials/specials_atlas.json?v=20260921-special-test-v3'
     );
   }
 
   create() {
     this.cameras.main.setBackgroundColor('#05283b');
 
-    this.add.text(500, 26, 'Дары глубин · тест анимации спецэлементов', {
+    this.add.text(500, 26, 'Дары глубин · тест спецэлементов v3', {
       fontSize: '24px',
       color: '#ffffff',
       fontFamily: 'Arial, sans-serif'
@@ -29,9 +29,9 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
     this.add.text(
       500,
       56,
-      'Сейчас это именно тест — ничего нового здесь не фиксируем до просмотра.',
+      'Пузыри должны читаться как шары. Водоворот — круглая воронка. Ракушка — со скользящим бликом.',
       {
-        fontSize: '14px',
+        fontSize: '13px',
         color: '#a9dbea',
         fontFamily: 'Arial, sans-serif'
       }
@@ -122,26 +122,21 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
 
     const addGradientAura = (x, y, radius, color) => {
       const aura = this.add.container(x, y);
-      const layers = 9;
+      const layers = 12;
 
       for (let i = layers; i >= 1; i -= 1) {
         const t = i / layers;
-        const circle = this.add.circle(
-          0,
-          0,
-          radius * t,
-          color,
-          0.008 + (1 - t) * 0.022
-        );
+        const alpha = 0.004 + Math.pow(1 - t, 2) * 0.028;
+        const circle = this.add.circle(0, 0, radius * t, color, alpha);
         circle.setBlendMode(Phaser.BlendModes.ADD);
         aura.add(circle);
       }
 
       this.tweens.add({
         targets: aura,
-        scale: { from: 0.94, to: 1.06 },
-        alpha: { from: 0.72, to: 1.0 },
-        duration: 2300,
+        scale: { from: 0.96, to: 1.045 },
+        alpha: { from: 0.76, to: 1.0 },
+        duration: 2450,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
@@ -150,71 +145,77 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       return aura;
     };
 
-    // Code-only bubble outline with local quadrant deformation.
-    // Four radial values are smoothly interpolated around the circumference.
-    const createSoftBubble = (
+    const angleDistance = (a, b) => {
+      let d = a - b;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      return d;
+    };
+
+    // Starts as a true circle. Only small local arcs of the rim bend in/out.
+    const createRoundBubble = (
       x,
       y,
       radius,
       {
-        deformation = 5,
-        fillAlpha = 0.018,
-        lineAlpha = 0.72,
-        lineWidth = 1.7,
+        deformation = 4.5,
+        lineAlpha = 0.78,
+        fillAlpha = 0.025,
         phaseDelay = 0
       } = {}
     ) => {
       const outline = this.add.graphics();
       const highlight = this.add.graphics();
+
       const state = {
-        q0: 0,
-        q1: 0,
-        q2: 0,
-        q3: 0
+        upperLeft: 0,
+        lower: 0,
+        right: 0
       };
 
-      const values = () => [state.q0, state.q1, state.q2, state.q3];
+      const bump = (angle, center, amplitude, width) => {
+        const d = angleDistance(angle, center);
+        return amplitude * Math.exp(-(d * d) / (2 * width * width));
+      };
 
-      const smooth = (t) => t * t * (3 - 2 * t);
-
-      const radiusOffset = (angle) => {
-        const normalized = ((angle + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2);
-        const p = normalized * 4;
-        const i = Math.floor(p) % 4;
-        const j = (i + 1) % 4;
-        const t = smooth(p - Math.floor(p));
-        const q = values();
-        return Phaser.Math.Linear(q[i], q[j], t);
+      const offsetAt = (a) => {
+        return (
+          bump(a, Math.PI * 1.25, state.upperLeft, 0.26) +
+          bump(a, Math.PI * 0.50, state.lower, 0.24) +
+          bump(a, 0.04, state.right, 0.22)
+        );
       };
 
       const redraw = () => {
         outline.clear();
-        outline.fillStyle(0xbcefff, fillAlpha);
-        outline.lineStyle(lineWidth, 0xe8fbff, lineAlpha);
+        outline.fillStyle(0xeafcff, fillAlpha);
+        outline.lineStyle(2.0, 0xf5fdff, lineAlpha);
         outline.beginPath();
 
-        const segments = 72;
+        const segments = 110;
         for (let i = 0; i <= segments; i += 1) {
           const a = (i / segments) * Math.PI * 2;
-          const rr = radius + radiusOffset(a);
+          const rr = radius + offsetAt(a);
           const px = x + Math.cos(a) * rr;
           const py = y + Math.sin(a) * rr;
           if (i === 0) outline.moveTo(px, py);
           else outline.lineTo(px, py);
         }
+
         outline.closePath();
         outline.fillPath();
         outline.strokePath();
 
-        // Only a partial white reflection, not a second coloured boundary.
+        // One broken reflection only — not another enclosing ring.
         highlight.clear();
-        highlight.lineStyle(4.2, 0xffffff, 0.12);
+        highlight.lineStyle(5.0, 0xffffff, 0.18);
         highlight.beginPath();
-        const start = Math.PI * 1.10;
-        const end = Math.PI * 1.48;
-        for (let i = 0; i <= 16; i += 1) {
-          const a = Phaser.Math.Linear(start, end, i / 16);
-          const rr = radius - 5 + radiusOffset(a) * 0.7;
+
+        const start = Math.PI * 1.08;
+        const end = Math.PI * 1.39;
+        for (let i = 0; i <= 22; i += 1) {
+          const a = Phaser.Math.Linear(start, end, i / 22);
+          const rr = radius - 4 + offsetAt(a) * 0.55;
           const px = x + Math.cos(a) * rr;
           const py = y + Math.sin(a) * rr;
           if (i === 0) highlight.moveTo(px, py);
@@ -226,46 +227,87 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       const morph = () => {
         this.tweens.add({
           targets: state,
-          q0: Phaser.Math.FloatBetween(-deformation, deformation),
-          q1: Phaser.Math.FloatBetween(-deformation, deformation),
-          q2: Phaser.Math.FloatBetween(-deformation, deformation),
-          q3: Phaser.Math.FloatBetween(-deformation, deformation),
-          duration: Phaser.Math.Between(2300, 3900),
+          upperLeft: Phaser.Math.FloatBetween(-deformation, deformation),
+          lower: Phaser.Math.FloatBetween(-deformation * 0.8, deformation * 0.8),
+          right: Phaser.Math.FloatBetween(-deformation * 0.55, deformation * 0.55),
+          duration: Phaser.Math.Between(2500, 4100),
           ease: 'Sine.easeInOut',
           onUpdate: redraw,
-          onComplete: () => {
-            this.time.delayedCall(Phaser.Math.Between(150, 650), morph);
-          }
+          onComplete: () => this.time.delayedCall(Phaser.Math.Between(250, 850), morph)
         });
       };
 
       redraw();
-      this.time.delayedCall(phaseDelay + Phaser.Math.Between(0, 900), morph);
+      this.time.delayedCall(phaseDelay + Phaser.Math.Between(0, 800), morph);
 
       return { outline, highlight, state };
     };
 
-    const createVortex = (x, y) => {
+    const addShellSweep = (x, y) => {
+      const glint = this.add.container(x - 72, y - 7);
+
+      const strip1 = this.add.rectangle(0, 0, 12, 104, 0xffffff, 0.00).setAngle(20);
+      const strip2 = this.add.rectangle(-7, 0, 5, 104, 0xffffff, 0.00).setAngle(20);
+      const strip3 = this.add.rectangle(8, 0, 5, 104, 0xffffff, 0.00).setAngle(20);
+
+      strip1.setBlendMode(Phaser.BlendModes.ADD);
+      strip2.setBlendMode(Phaser.BlendModes.ADD);
+      strip3.setBlendMode(Phaser.BlendModes.ADD);
+      glint.add([strip1, strip2, strip3]);
+
+      const maskShape = this.make.graphics({ x: 0, y: 0, add: false });
+      maskShape.fillStyle(0xffffff);
+      maskShape.fillEllipse(x, y - 8, 114, 98);
+      glint.setMask(maskShape.createGeometryMask());
+
+      const sweep = () => {
+        glint.x = x - 74;
+        glint.alpha = 0;
+
+        strip1.setFillStyle(0xffffff, 0.22);
+        strip2.setFillStyle(0xffffff, 0.10);
+        strip3.setFillStyle(0xffffff, 0.08);
+
+        this.tweens.add({
+          targets: glint,
+          x: x + 74,
+          alpha: { from: 0, to: 1 },
+          duration: 760,
+          ease: 'Sine.easeInOut',
+          onComplete: () => {
+            this.tweens.add({
+              targets: glint,
+              alpha: 0,
+              duration: 220,
+              onComplete: () => {
+                this.time.delayedCall(Phaser.Math.Between(2400, 4200), sweep);
+              }
+            });
+          }
+        });
+      };
+
+      this.time.delayedCall(1100, sweep);
+    };
+
+    // A circular top-down funnel. Fits comfortably inside a square cell.
+    const createCircularVortex = (x, y) => {
       const container = this.add.container(x, y);
       const g = this.add.graphics();
 
-      // Dark central depth gives a clear "funnel" instead of a bubble.
-      const holeOuter = this.add.ellipse(0, 0, 46, 32, 0x06384d, 0.48);
-      const holeInner = this.add.ellipse(0, 0, 23, 15, 0x01141d, 0.88);
-
-      const drawArm = (offset, color, alpha, width, radialOffset = 0) => {
+      const drawArm = (offset, color, alpha, width, r0) => {
         g.lineStyle(width, color, alpha);
         g.beginPath();
 
-        const turns = Math.PI * 3.7;
-        const steps = 92;
+        const turns = Math.PI * 4.1;
+        const steps = 112;
 
         for (let i = 0; i <= steps; i += 1) {
           const t = i / steps;
           const a = offset + t * turns;
-          const r = Phaser.Math.Linear(72 + radialOffset, 7, t);
+          const r = Phaser.Math.Linear(r0, 7, t);
           const px = Math.cos(a) * r;
-          const py = Math.sin(a) * r * 0.72;
+          const py = Math.sin(a) * r; // deliberately circular, no Y squashing
           if (i === 0) g.moveTo(px, py);
           else g.lineTo(px, py);
         }
@@ -273,23 +315,25 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
         g.strokePath();
       };
 
-      drawArm(0.0, 0xbdf8ff, 0.82, 5.0);
-      drawArm(Math.PI * 0.67, 0x57dff2, 0.60, 4.0, -3);
-      drawArm(Math.PI * 1.34, 0xffffff, 0.48, 2.4, 4);
-      drawArm(Math.PI * 0.20, 0x31a8d4, 0.38, 7.0, 6);
+      drawArm(0.0, 0xcafcff, 0.78, 5.0, 70);
+      drawArm(Math.PI * 0.66, 0x6ee4f4, 0.58, 4.2, 66);
+      drawArm(Math.PI * 1.32, 0xffffff, 0.46, 2.6, 73);
+      drawArm(Math.PI * 0.20, 0x269fca, 0.32, 7.5, 60);
+
+      const holeOuter = this.add.circle(0, 0, 18, 0x063346, 0.72);
+      const holeInner = this.add.circle(0, 0, 8, 0x010d13, 0.95);
 
       container.add([g, holeOuter, holeInner]);
 
-      // A few orbiting droplets — no enclosing circle.
       for (let i = 0; i < 5; i += 1) {
         const a = (i / 5) * Math.PI * 2;
-        const r = 56 + (i % 2) * 10;
+        const r = 58 + (i % 2) * 8;
         const drop = this.add.circle(
           Math.cos(a) * r,
-          Math.sin(a) * r * 0.72,
-          2.0 + (i % 3) * 0.55,
-          0xd9fbff,
-          0.55
+          Math.sin(a) * r,
+          1.8 + (i % 2) * 0.6,
+          0xe4fdff,
+          0.42
         );
         drop.setBlendMode(Phaser.BlendModes.ADD);
         container.add(drop);
@@ -298,16 +342,15 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       this.tweens.add({
         targets: container,
         angle: 360,
-        duration: 11500,
+        duration: 11200,
         repeat: -1,
         ease: 'Linear'
       });
 
       this.tweens.add({
-        targets: [g, holeOuter],
-        scaleX: { from: 0.97, to: 1.035 },
-        scaleY: { from: 1.03, to: 0.975 },
-        duration: 2600,
+        targets: g,
+        scale: { from: 0.97, to: 1.025 },
+        duration: 2700,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
@@ -316,11 +359,11 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       return container;
     };
 
-    // 1. STAR A — softer gradient aura
+    // 1. STAR A — current preferred direction
     {
       const [x, y] = positions[0];
-      drawCard(x, y, 'Звезда A', 'градиентное свечение');
-      const aura = addGradientAura(x, y - 10, 74, 0xffc94d);
+      drawCard(x, y, 'Звезда A', 'свечение мягко растворяется');
+      const aura = addGradientAura(x, y - 10, 76, 0xffc94d);
       const star = this.add.image(x, y - 10, 'special_star_test').setScale(0.42);
 
       this.tweens.add({
@@ -337,11 +380,12 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       aura.setDepth(star.depth - 1);
     }
 
-    // 2. STAR B — simple motion
+    // 2. STAR B — kept only for side-by-side comparison
     {
       const [x, y] = positions[1];
-      drawCard(x, y, 'Звезда B', 'наклон + искры');
+      drawCard(x, y, 'Звезда B', 'запасной вариант');
       const star = this.add.image(x, y - 10, 'special_star_test').setScale(0.42);
+
       this.tweens.add({
         targets: star,
         angle: { from: -1.2, to: 1.2 },
@@ -352,13 +396,14 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
         repeat: -1,
         ease: 'Sine.easeInOut'
       });
+
       addSparkles(x, y - 10, 68, 6);
     }
 
-    // 3. OCTOPUS — soft body motion, no bubble
+    // 3. OCTOPUS — unchanged, current version reads well
     {
       const [x, y] = positions[2];
-      drawCard(x, y, 'Осьминог', 'плавает и слегка "дышит"');
+      drawCard(x, y, 'Осьминог', 'оставлен как в удачном варианте');
       const octo = this.add.image(x, y - 8, 'special_octopus_test').setScale(0.41);
       randomFloat(octo, y - 8, 4.2, 1.1, 2100, 3700);
 
@@ -373,99 +418,94 @@ export default class SpecialElementsTestScene extends Phaser.Scene {
       });
     }
 
-    // 4. PEARL — movement made deliberately visible for this test
+    // 4. PEARL SHELL — periodic sliding glint across the pearl/interior
     {
       const [x, y] = positions[3];
-      drawCard(x, y, 'Жемчужина', 'покачивание + дыхание света');
+      drawCard(x, y, 'Жемчужина', 'периодический скользящий блик');
 
-      const glow = addGradientAura(x, y - 4, 49, 0xfff3dc);
-      glow.setAlpha(0.72);
+      const glow = addGradientAura(x, y - 4, 48, 0xfff3dc);
+      glow.setAlpha(0.60);
 
       const pearl = this.add.image(x, y - 8, 'special_pearl_test').setScale(0.45);
-      randomFloat(pearl, y - 8, 5.0, 1.35, 2300, 3900);
+      randomFloat(pearl, y - 8, 3.2, 0.85, 2700, 4300);
 
       this.tweens.add({
         targets: pearl,
-        scaleX: { from: 0.444, to: 0.456 },
-        scaleY: { from: 0.448, to: 0.455 },
-        duration: 2200,
+        scaleX: { from: 0.446, to: 0.454 },
+        scaleY: { from: 0.447, to: 0.454 },
+        duration: 2450,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
       });
 
-      addSparkles(x, y - 4, 52, 3);
+      addShellSweep(x, y - 8);
     }
 
-    // 5. SEAWEED BUBBLE — large, with a locally deforming CODE-DRAWN edge
+    // 5. SEAWEED BUBBLE — true sphere + local rim bends only
     {
       const [x, y] = positions[4];
-      drawCard(x, y, 'Пузырь с водорослями', 'край гуляет локально примерно на 5 px');
+      drawCard(x, y, 'Пузырь с водорослями', 'круглый шар, гуляет только часть кромки');
 
-      const content = this.add.image(x, y - 13, 'special_seaweed_bubble_test').setScale(0.69);
+      const content = this.add.image(x, y - 12, 'special_seaweed_bubble_test').setScale(0.69);
 
-      // Hide the original outer blue shell; keep only the seaweed/water contents.
       const maskShape = this.make.graphics({ x: 0, y: 0, add: false });
       maskShape.fillStyle(0xffffff);
-      maskShape.fillCircle(x, y - 13, 69);
+      maskShape.fillCircle(x, y - 12, 73);
       content.setMask(maskShape.createGeometryMask());
 
-      createSoftBubble(x, y - 13, 82, {
-        deformation: 5.4,
-        fillAlpha: 0.010,
-        lineAlpha: 0.76,
-        lineWidth: 1.65,
-        phaseDelay: 180
+      createRoundBubble(x, y - 12, 82, {
+        deformation: 4.8,
+        lineAlpha: 0.84,
+        fillAlpha: 0.032,
+        phaseDelay: 100
       });
 
-      // The contents move less than the edge: slight water refraction feeling.
       this.tweens.add({
         targets: content,
-        x: { from: x - 1.2, to: x + 1.2 },
-        y: { from: y - 14.2, to: y - 11.8 },
-        scaleX: { from: 0.683, to: 0.697 },
-        scaleY: { from: 0.697, to: 0.683 },
-        duration: 3400,
+        x: { from: x - 0.8, to: x + 0.8 },
+        y: { from: y - 12.8, to: y - 11.2 },
+        scaleX: { from: 0.688, to: 0.694 },
+        scaleY: { from: 0.694, to: 0.688 },
+        duration: 3700,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
       });
     }
 
-    // 6. AIR BUBBLE — pure bubble, no blue/cyan outer ring asset
+    // 6. AIR BUBBLE — also a true round sphere; no coloured enclosing ring
     {
       const [x, y] = positions[5];
-      drawCard(x, y, 'Воздушный пузырь', 'только прозрачная оболочка');
+      drawCard(x, y, 'Воздушный пузырь', 'круглый прозрачный шар');
 
-      createSoftBubble(x, y - 13, 82, {
-        deformation: 5.8,
-        fillAlpha: 0.008,
-        lineAlpha: 0.70,
-        lineWidth: 1.55,
-        phaseDelay: 620
+      createRoundBubble(x, y - 12, 82, {
+        deformation: 3.8,
+        lineAlpha: 0.80,
+        fillAlpha: 0.020,
+        phaseDelay: 560
       });
 
-      // Small interior highlights only, not another circular boundary.
-      const glint1 = this.add.ellipse(x - 31, y - 48, 29, 9, 0xffffff, 0.16).setAngle(-28);
-      const glint2 = this.add.circle(x + 33, y + 21, 3.4, 0xffffff, 0.17);
+      const glint1 = this.add.ellipse(x - 30, y - 48, 30, 9, 0xffffff, 0.18).setAngle(-28);
+      const glint2 = this.add.circle(x + 33, y + 22, 3.2, 0xffffff, 0.16);
       glint1.setBlendMode(Phaser.BlendModes.ADD);
       glint2.setBlendMode(Phaser.BlendModes.ADD);
 
       this.tweens.add({
         targets: [glint1, glint2],
-        alpha: { from: 0.08, to: 0.23 },
-        duration: 1700,
+        alpha: { from: 0.08, to: 0.22 },
+        duration: 1900,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
       });
     }
 
-    // 7. VORTEX — actual funnel, no bubble shell
+    // 7. VORTEX — circular footprint, reads as a funnel inside a square cell
     {
       const [x, y] = positions[6];
-      drawCard(x, y, 'Водоворот', 'воронка без пузыря');
-      createVortex(x, y - 10);
+      drawCard(x, y, 'Водоворот', 'круглая воронка в квадратной клетке');
+      createCircularVortex(x, y - 10);
     }
 
     // 8. PUFFER — approved 5-stage animation
