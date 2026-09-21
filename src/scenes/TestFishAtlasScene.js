@@ -6,14 +6,14 @@ export default class TestFishAtlasScene extends Phaser.Scene {
   preload() {
     this.load.atlas(
       'fish',
-      'assets/atlas/fish/fish_atlas.png?v=20260921-motion2',
-      'assets/atlas/fish/fish_atlas.json?v=20260921-motion2'
+      'assets/atlas/fish/fish_atlas.png?v=20260921-refined-v2',
+      'assets/atlas/fish/fish_atlas.json?v=20260921-refined-v2'
     );
 
     this.load.atlas(
       'specials',
-      'assets/atlas/specials/specials_atlas.png?v=20260921-motion2',
-      'assets/atlas/specials/specials_atlas.json?v=20260921-motion2'
+      'assets/atlas/specials/specials_atlas.png?v=20260921-refined-v2',
+      'assets/atlas/specials/specials_atlas.json?v=20260921-refined-v2'
     );
   }
 
@@ -50,120 +50,67 @@ export default class TestFishAtlasScene extends Phaser.Scene {
     const grid = this.add.graphics();
     grid.lineStyle(1, 0xffffff, 0.15);
 
-    // All fish get a very small, irregular water-holding motion.
-    // It is deliberately recursive instead of yoyo/repeat so the rhythm never locks.
     const addIrregularWaterMotion = (
       sprite,
       baseX,
       baseY,
       flipX,
       {
-        yMax = 0.65,
-        angleMax = 0.28,
-        xMax = 0.12,
-        minDuration = 2100,
-        maxDuration = 3900
+        yMax = 0.42,
+        angleMax = 0.10,
+        minDuration = 3000,
+        maxDuration = 5500
       } = {}
     ) => {
       const move = () => {
         const targetY = baseY + Phaser.Math.FloatBetween(-yMax, yMax);
-        const targetX = baseX + Phaser.Math.FloatBetween(-xMax, xMax);
         const rawAngle = Phaser.Math.FloatBetween(-angleMax, angleMax);
-        const targetAngle = flipX ? -rawAngle : rawAngle;
 
-        const tweenConfig = {
+        this.tweens.add({
           targets: sprite,
-          x: targetX,
           y: targetY,
+          angle: flipX ? -rawAngle : rawAngle,
           duration: Phaser.Math.Between(minDuration, maxDuration),
           ease: 'Sine.easeInOut',
           onComplete: () => {
             this.time.delayedCall(
-              Phaser.Math.Between(80, 520),
+              Phaser.Math.Between(120, 720),
               move
             );
           }
-        };
-
-        if (angleMax > 0) {
-          tweenConfig.angle = targetAngle;
-        }
-
-        this.tweens.add(tweenConfig);
+        });
       };
 
       this.time.delayedCall(
-        Phaser.Math.Between(0, 1600),
+        Phaser.Math.Between(0, 2200),
         move
       );
     };
 
-    // True frame animation only for goldfish and clownfish.
-    // The pace is ~1.6-1.9x slower than the previous test and each instance
-    // has its own timing, so no two fish breathe/swim in sync.
-    const addIrregularFrameAnimation = (sprite, fishName, flipX) => {
-      const frames = [
-        `${fishName}_f01`,
-        `${fishName}_f02`,
-        `${fishName}_f03`,
-        `${fishName}_f02`,
-        `${fishName}_f01`
-      ];
-
-      const isGoldfish = fishName === 'fish_01_goldfish';
-      const isClown = fishName === 'fish_06_clownfish';
+    const addRefinedFishAnimation = (sprite, fishName) => {
+      const frames = Array.from(
+        { length: 7 },
+        (_, index) => `${fishName}_f${String(index + 1).padStart(2, '0')}`
+      );
 
       const runCycle = () => {
         let step = 0;
 
         const advance = () => {
           sprite.setFrame(frames[step]);
-
-          // The clownfish gets a tiny extra "turn" while the tail bends.
-          // This is intentionally subtle: a small angle + horizontal compression,
-          // not a visible rotation of the whole tile.
-          if (isClown) {
-            if (step === 1) {
-              this.tweens.add({
-                targets: sprite,
-                scaleX: 0.266,
-                angle: flipX ? 0.32 : -0.32,
-                duration: Phaser.Math.Between(420, 560),
-                ease: 'Sine.easeInOut'
-              });
-            } else if (step === 2) {
-              this.tweens.add({
-                targets: sprite,
-                scaleX: 0.264,
-                angle: flipX ? 0.46 : -0.46,
-                duration: Phaser.Math.Between(440, 620),
-                ease: 'Sine.easeInOut'
-              });
-            } else if (step >= 3) {
-              this.tweens.add({
-                targets: sprite,
-                scaleX: 0.27,
-                angle: 0,
-                duration: Phaser.Math.Between(430, 620),
-                ease: 'Sine.easeInOut'
-              });
-            }
-          }
-
           step += 1;
 
           if (step < frames.length) {
-            const transitionDelay = isGoldfish
-              ? Phaser.Math.Between(420, 650)
-              : Phaser.Math.Between(380, 590);
+            const delay = fishName === 'fish_01_goldfish'
+              ? Phaser.Math.Between(290, 430)
+              : Phaser.Math.Between(300, 450);
 
-            this.time.delayedCall(transitionDelay, advance);
+            this.time.delayedCall(delay, advance);
           } else {
-            const restDelay = isGoldfish
-              ? Phaser.Math.Between(650, 1650)
-              : Phaser.Math.Between(550, 1450);
-
-            this.time.delayedCall(restDelay, runCycle);
+            this.time.delayedCall(
+              Phaser.Math.Between(650, 1650),
+              runCycle
+            );
           }
         };
 
@@ -171,7 +118,7 @@ export default class TestFishAtlasScene extends Phaser.Scene {
       };
 
       this.time.delayedCall(
-        Phaser.Math.Between(0, 2200),
+        Phaser.Math.Between(250, 2600),
         runCycle
       );
     };
@@ -203,36 +150,37 @@ export default class TestFishAtlasScene extends Phaser.Scene {
         sprite.setScale(0.27);
         sprite.setFlipX(flipX);
 
-        addIrregularWaterMotion(
-          sprite,
-          x,
-          y,
-          flipX,
-          animatedFish.has(fishName)
-            ? {
-                yMax: 0.48,
-                angleMax: fishName === 'fish_06_clownfish' ? 0 : 0.18,
-                xMax: 0.08,
-                minDuration: 2400,
-                maxDuration: 4300
-              }
-            : {
-                yMax: 0.72,
-                angleMax: 0.30,
-                xMax: 0.10,
-                minDuration: 2300,
-                maxDuration: 4200
-              }
-        );
-
         if (animatedFish.has(fishName)) {
-          addIrregularFrameAnimation(sprite, fishName, flipX);
+          addIrregularWaterMotion(
+            sprite,
+            x,
+            y,
+            flipX,
+            {
+              yMax: 0.28,
+              angleMax: 0.06,
+              minDuration: 3400,
+              maxDuration: 5600
+            }
+          );
+          addRefinedFishAnimation(sprite, fishName);
+        } else {
+          addIrregularWaterMotion(
+            sprite,
+            x,
+            y,
+            flipX,
+            {
+              yMax: Phaser.Math.FloatBetween(0.32, 0.48),
+              angleMax: Phaser.Math.FloatBetween(0.07, 0.12),
+              minDuration: 3200,
+              maxDuration: 5700
+            }
+          );
         }
       }
     }
 
-    // Puffer: keep eye size unchanged. Inflation is frame-based only.
-    // Slower timings and irregular pauses make the 3 available stages read softer.
     const puffer = this.add.sprite(
       860,
       285,
@@ -249,65 +197,62 @@ export default class TestFishAtlasScene extends Phaser.Scene {
       285,
       false,
       {
-        yMax: 0.48,
-        angleMax: 0.16,
-        xMax: 0.06,
-        minDuration: 2800,
-        maxDuration: 4600
+        yMax: 0.22,
+        angleMax: 0.05,
+        minDuration: 3800,
+        maxDuration: 6200
       }
     );
 
+    const pufferFrames = [
+      'special_puffer_f01',
+      'special_puffer_f02',
+      'special_puffer_f03',
+      'special_puffer_f04',
+      'special_puffer_f05',
+      'special_puffer_f04',
+      'special_puffer_f03',
+      'special_puffer_f02',
+      'special_puffer_f01'
+    ];
+
     const runPufferCycle = () => {
-      puffer.setFrame('special_puffer_f01');
+      let step = 0;
 
-      this.time.delayedCall(
-        Phaser.Math.Between(650, 980),
-        () => {
-          puffer.setFrame('special_puffer_f02');
+      const advance = () => {
+        puffer.setFrame(pufferFrames[step]);
+        step += 1;
 
+        if (step < pufferFrames.length) {
           this.time.delayedCall(
-            Phaser.Math.Between(620, 860),
-            () => {
-              puffer.setFrame('special_puffer_f03');
-
-              this.time.delayedCall(
-                Phaser.Math.Between(900, 1350),
-                () => {
-                  puffer.setFrame('special_puffer_f02');
-
-                  this.time.delayedCall(
-                    Phaser.Math.Between(620, 860),
-                    () => {
-                      puffer.setFrame('special_puffer_f01');
-
-                      this.time.delayedCall(
-                        Phaser.Math.Between(950, 1750),
-                        runPufferCycle
-                      );
-                    }
-                  );
-                }
-              );
-            }
+            Phaser.Math.Between(300, 470),
+            advance
+          );
+        } else {
+          this.time.delayedCall(
+            Phaser.Math.Between(900, 1750),
+            runPufferCycle
           );
         }
-      );
+      };
+
+      advance();
     };
 
     this.time.delayedCall(
-      Phaser.Math.Between(700, 1500),
+      Phaser.Math.Between(700, 1800),
       runPufferCycle
     );
 
-    this.add.text(735, 105, 'Puffer inflation', {
-      fontSize: '23px',
+    this.add.text(735, 105, 'Puffer inflation · 5 stages', {
+      fontSize: '22px',
       color: '#ffffff'
     });
 
     this.add.text(
-      700,
+      680,
       455,
-      'Goldfish + clownfish: slower irregular frame animation\nOthers: subtle irregular water sway',
+      'Goldfish + clownfish: 7 refined frames, irregular timing\nOthers: very slight unsynchronised water sway',
       {
         fontSize: '16px',
         color: '#bfefff',
