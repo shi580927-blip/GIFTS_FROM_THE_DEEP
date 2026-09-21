@@ -171,10 +171,13 @@ export default class TestFishAtlasScene extends Phaser.Scene {
             y,
             flipX,
             {
-              yMax: Phaser.Math.FloatBetween(0.32, 0.48),
-              angleMax: Phaser.Math.FloatBetween(0.07, 0.12),
-              minDuration: 3200,
-              maxDuration: 5700
+              // These four fish use one visual frame, so the motion must be
+              // visible enough to read on screen, but still feel like they
+              // are holding position in a gentle underwater current.
+              yMax: Phaser.Math.FloatBetween(0.90, 1.35),
+              angleMax: Phaser.Math.FloatBetween(0.16, 0.24),
+              minDuration: 3000,
+              maxDuration: 5200
             }
           );
         }
@@ -252,7 +255,7 @@ export default class TestFishAtlasScene extends Phaser.Scene {
     this.add.text(
       680,
       455,
-      'Goldfish + clownfish: 7 refined frames, irregular timing\nOthers: very slight unsynchronised water sway',
+      'Goldfish + clownfish: 7 refined frames, irregular timing\nOthers: gentle visible unsynchronised water sway',
       {
         fontSize: '16px',
         color: '#bfefff',
