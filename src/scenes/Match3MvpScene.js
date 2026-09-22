@@ -51,6 +51,9 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.busy = false;
     this.moves = 20;
     this.matchedTotal = 0;
+    this.hintTimer = null;
+    this.hintObjects = [];
+    this.hintDelay = 5000;
 
     this.createBackdrop();
     this.createHud();
@@ -58,8 +61,10 @@ export default class Match3MvpScene extends Phaser.Scene {
     if (this.blockersEnabled) {
       this.createPlayableBlockers();
     }
+    this.scheduleHint();
 
     this.input.on('pointerdown', pointer => {
+      this.cancelHint(true);
       if (this.busy) return;
 
       const cell = this.pointerToCell(pointer.x, pointer.y);
@@ -74,11 +79,13 @@ export default class Match3MvpScene extends Phaser.Scene {
       if (this.cellBlocksSwap(cell.row, cell.col)) {
         this.clearSelection();
         this.statusText.setText('Эта рыба пока заблокирована');
+        this.scheduleHint();
         return;
       }
 
       if (!this.selected) {
         this.selectCell(cell.row, cell.col);
+        this.scheduleHint();
         return;
       }
 
@@ -91,6 +98,7 @@ export default class Match3MvpScene extends Phaser.Scene {
         this.trySwap(from.row, from.col, cell.row, cell.col);
       } else {
         this.selectCell(cell.row, cell.col);
+        this.scheduleHint();
       }
     });
   }
@@ -132,7 +140,7 @@ export default class Match3MvpScene extends Phaser.Scene {
       color: '#e6fbff'
     }).setOrigin(0.5);
 
-    this.add.text(805, 124, 'PLAYABLE · BLOCKERS v1', {
+    this.add.text(805, 124, 'PLAYABLE · BLOCKERS + HINT v2', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '12px',
       color: '#87d8ea'
@@ -199,7 +207,7 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.add.text(
       805,
       592,
-      'Тест: базовый match-3 + препятствия\nрыбы: sway без покадрового idle',
+      'Тест: препятствия + подсказка хода\nsolid-клетки перекрывают поток рыб',
       {
         fontFamily: 'Arial, sans-serif',
         fontSize: '12px',
@@ -594,6 +602,152 @@ export default class Match3MvpScene extends Phaser.Scene {
     });
   }
 
+  scheduleHint() {
+    this.cancelHint(false);
+
+    if (this.busy || this.moves <= 0) return;
+
+    this.hintTimer = this.time.delayedCall(this.hintDelay, () => {
+      this.hintTimer = null;
+      this.playHint();
+    });
+  }
+
+  cancelHint(resetVisuals = true) {
+    if (this.hintTimer) {
+      this.hintTimer.remove(false);
+      this.hintTimer = null;
+    }
+
+    if (!resetVisuals) return;
+
+    this.hintObjects.forEach(obj => {
+      if (obj?.active) {
+        this.tweens.killTweensOf(obj);
+        obj.destroy();
+      }
+    });
+    this.hintObjects = [];
+  }
+
+  findHintSwap() {
+    const directions = [
+      [0, 1],
+      [1, 0]
+    ];
+
+    for (let row = 0; row < this.rows; row += 1) {
+      for (let col = 0; col < this.cols; col += 1) {
+        const a = this.board[row]?.[col];
+        if (!a || this.cellBlocksSwap(row, col)) continue;
+
+        for (const [dr, dc] of directions) {
+          const nr = row + dr;
+          const nc = col + dc;
+
+          if (nr >= this.rows || nc >= this.cols) continue;
+
+          const b = this.board[nr]?.[nc];
+          if (!b || this.cellBlocksSwap(nr, nc)) continue;
+
+          this.board[row][col] = b;
+          this.board[nr][nc] = a;
+
+          const hasMatch = this.findMatches().size > 0;
+
+          this.board[row][col] = a;
+          this.board[nr][nc] = b;
+
+          if (hasMatch) {
+            return {
+              a: { row, col, piece: a },
+              b: { row: nr, col: nc, piece: b }
+            };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  playHint() {
+    if (this.busy || this.moves <= 0 || this.selected) {
+      this.scheduleHint();
+      return;
+    }
+
+    const hint = this.findHintSwap();
+    if (!hint) {
+      this.statusText.setText('Нет доступного хода');
+      return;
+    }
+
+    const aSprite = hint.a.piece?.sprite;
+    const bSprite = hint.b.piece?.sprite;
+    if (!aSprite?.active || !bSprite?.active) {
+      this.scheduleHint();
+      return;
+    }
+
+    const aCenter = this.cellCenter(hint.a.row, hint.a.col);
+    const bCenter = this.cellCenter(hint.b.row, hint.b.col);
+
+    const makeRing = center => {
+      const ring = this.add.circle(center.x, center.y, 27, 0x000000, 0)
+        .setStrokeStyle(2.4, 0xdffcff, 0.72)
+        .setDepth(29);
+      this.hintObjects.push(ring);
+
+      this.tweens.add({
+        targets: ring,
+        scale: { from: 0.88, to: 1.18 },
+        alpha: { from: 0.85, to: 0.08 },
+        duration: 620,
+        yoyo: true,
+        repeat: 1,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          if (ring.active) ring.destroy();
+          this.hintObjects = this.hintObjects.filter(obj => obj !== ring);
+        }
+      });
+    };
+
+    makeRing(aCenter);
+    makeRing(bCenter);
+
+    const pulse = sprite => {
+      this.tweens.add({
+        targets: sprite,
+        scaleX: BASE_SCALE * 1.10,
+        scaleY: BASE_SCALE * 1.10,
+        alpha: 1,
+        duration: 300,
+        yoyo: true,
+        repeat: 2,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          if (!sprite.active) return;
+          sprite.setScale(BASE_SCALE);
+          sprite.setAlpha(0.96);
+        }
+      });
+    };
+
+    pulse(aSprite);
+    pulse(bSprite);
+
+    this.statusText.setText('Подсказка: попробуй поменять\nэтих рыб местами');
+
+    this.hintTimer = this.time.delayedCall(2600, () => {
+      this.hintTimer = null;
+      if (!this.busy && !this.selected && this.moves > 0) {
+        this.scheduleHint();
+      }
+    });
+  }
+
   pointerToCell(x, y) {
     const col = Math.floor(
       (x - (this.boardX - this.cellSize / 2)) / this.cellSize
@@ -655,6 +809,7 @@ export default class Match3MvpScene extends Phaser.Scene {
 
     if (this.cellBlocksSwap(r1, c1) || this.cellBlocksSwap(r2, c2)) {
       this.statusText.setText('Препятствие блокирует перестановку');
+      this.scheduleHint();
       return;
     }
 
@@ -670,6 +825,7 @@ export default class Match3MvpScene extends Phaser.Scene {
       this.statusText.setText('Совпадения нет');
       this.busy = false;
       this.restartAllIdle();
+      this.scheduleHint();
       return;
     }
 
@@ -687,6 +843,7 @@ export default class Match3MvpScene extends Phaser.Scene {
 
     this.busy = false;
     this.restartAllIdle();
+    this.scheduleHint();
   }
 
   animateSwapDive(r1, c1, r2, c2) {
@@ -1381,67 +1538,62 @@ export default class Match3MvpScene extends Phaser.Scene {
     const tweens = [];
 
     for (let col = 0; col < this.cols; col += 1) {
-      let segmentBottom = this.rows - 1;
+      let sourceBottom = this.rows - 1;
 
-      for (let separator = this.rows - 1; separator >= -1; separator -= 1) {
-        const isSeparator =
-          separator === -1 || this.isSolidBlocker(separator, col);
-
-        if (!isSeparator) continue;
-
-        const segmentTop = separator + 1;
-        const emptyRows = [];
-
-        for (let row = segmentTop; row <= segmentBottom; row += 1) {
-          if (!this.board[row][col]) {
-            emptyRows.push(row);
-          }
+      for (let row = 0; row < this.rows; row += 1) {
+        if (this.isSolidBlocker(row, col)) {
+          sourceBottom = row - 1;
+          break;
         }
-
-        emptyRows.forEach((row, index) => {
-          const type = Phaser.Utils.Array.GetRandom(FISH_TYPES);
-          const { x, y } = this.cellCenter(row, col);
-          const segmentTopY = this.cellCenter(segmentTop, col).y;
-          const spawnY =
-            segmentTopY -
-            this.cellSize * (emptyRows.length - index + 0.8);
-
-          const sprite = this.add.sprite(
-            x,
-            spawnY,
-            'fish',
-            type + '_f01'
-          )
-            .setScale(BASE_SCALE)
-            .setDepth(10)
-            .setFlipX(Phaser.Math.Between(0, 1) === 1);
-
-          const piece = {
-            type,
-            sprite,
-            row,
-            col,
-            idleTimer: null,
-            frozenByBlocker: false
-          };
-
-          this.board[row][col] = piece;
-
-          tweens.push(
-            new Promise(resolve => {
-              this.tweens.add({
-                targets: sprite,
-                y,
-                duration: 320 + index * 55,
-                ease: 'Sine.easeOut',
-                onComplete: resolve
-              });
-            })
-          );
-        });
-
-        segmentBottom = separator - 1;
       }
+
+      const emptyRows = [];
+      for (let row = 0; row <= sourceBottom; row += 1) {
+        if (!this.board[row][col]) {
+          emptyRows.push(row);
+        }
+      }
+
+      emptyRows.forEach((row, index) => {
+        const type = Phaser.Utils.Array.GetRandom(FISH_TYPES);
+        const { x, y } = this.cellCenter(row, col);
+        const spawnY =
+          this.boardY -
+          this.cellSize * (emptyRows.length - index + 0.8);
+
+        const sprite = this.add.sprite(
+          x,
+          spawnY,
+          'fish',
+          type + '_f01'
+        )
+          .setScale(BASE_SCALE)
+          .setDepth(10)
+          .setFlipX(Phaser.Math.Between(0, 1) === 1);
+
+        const piece = {
+          type,
+          sprite,
+          row,
+          col,
+          idleTimer: null,
+          frozenByBlocker: false
+        };
+
+        this.board[row][col] = piece;
+
+        tweens.push(
+          new Promise(resolve => {
+            this.tweens.add({
+              targets: sprite,
+              y,
+              duration: 320 + index * 55,
+              ease: 'Sine.easeOut',
+              onComplete: resolve
+            });
+          })
+        );
+      });
     }
 
     return Promise.all(tweens);
