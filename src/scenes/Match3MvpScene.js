@@ -184,17 +184,13 @@ export default class Match3MvpScene extends Phaser.Scene {
         index % 3 === 0 ? 0x0f6b63 : 0x0a756d,
         0.48
       );
-      plant.beginPath();
-      plant.moveTo(x, baseY);
-      plant.bezierCurveTo(
-        x + 14 * lean,
-        baseY - height * 0.32,
-        x - 18 * lean,
-        baseY - height * 0.65,
-        x + 8 * lean,
-        baseY - height
-      );
-      plant.strokePath();
+      const p1 = { x, y: baseY };
+      const p2 = { x: x + 10 * lean, y: baseY - height * 0.30 };
+      const p3 = { x: x - 7 * lean, y: baseY - height * 0.62 };
+      const p4 = { x: x + 8 * lean, y: baseY - height };
+      plant.lineBetween(p1.x, p1.y, p2.x, p2.y);
+      plant.lineBetween(p2.x, p2.y, p3.x, p3.y);
+      plant.lineBetween(p3.x, p3.y, p4.x, p4.y);
 
       this.tweens.add({
         targets: plant,
