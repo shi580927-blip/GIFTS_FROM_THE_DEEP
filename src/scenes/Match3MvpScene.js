@@ -7,10 +7,12 @@ const FISH_TYPES = [
   'fish_06_clownfish'
 ];
 
-const FRAME_ANIMATED_FISH = new Set([
+const MICRO_TAIL_FISH = new Set([
   'fish_01_goldfish',
   'fish_06_clownfish'
 ]);
+
+const BASE_SCALE = 0.19;
 
 export default class Match3MvpScene extends Phaser.Scene {
   constructor() {
@@ -43,11 +45,9 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.createHud();
     this.createBoard();
 
-    this.activeDive = false;
-    this.scheduleAmbientDive();
-
     this.input.on('pointerdown', pointer => {
       if (this.busy) return;
+
       const cell = this.pointerToCell(pointer.x, pointer.y);
       if (!cell) {
         this.clearSelection();
@@ -112,9 +112,9 @@ export default class Match3MvpScene extends Phaser.Scene {
       color: '#e6fbff'
     }).setOrigin(0.5);
 
-    this.add.text(805, 124, 'PLAYABLE MVP', {
+    this.add.text(805, 124, 'PLAYABLE MVP · ANIMATION v2', {
       fontFamily: 'Arial, sans-serif',
-      fontSize: '13px',
+      fontSize: '12px',
       color: '#87d8ea'
     }).setOrigin(0.5);
 
@@ -162,7 +162,9 @@ export default class Match3MvpScene extends Phaser.Scene {
     resetBg.fillStyle(0x1182a2, 0.85);
     resetBg.fillRoundedRect(735, 510, 140, 44, 13);
 
-    this.resetHit = this.add.zone(805, 532, 140, 44).setInteractive({ useHandCursor: true });
+    this.resetHit = this.add.zone(805, 532, 140, 44)
+      .setInteractive({ useHandCursor: true });
+
     this.add.text(805, 532, 'ЗАНОВО', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '15px',
@@ -174,13 +176,18 @@ export default class Match3MvpScene extends Phaser.Scene {
       this.scene.restart();
     });
 
-    this.add.text(805, 592, 'Технический игровой срез\nбез финального баланса уровня', {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: '12px',
-      color: '#75aebd',
-      align: 'center',
-      lineSpacing: 4
-    }).setOrigin(0.5);
+    this.add.text(
+      805,
+      592,
+      'Тест: тихий idle · нырок при swap\nстайка + пузыри при совпадении',
+      {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '12px',
+        color: '#75aebd',
+        align: 'center',
+        lineSpacing: 4
+      }
+    ).setOrigin(0.5);
   }
 
   createBoard() {
@@ -211,7 +218,12 @@ export default class Match3MvpScene extends Phaser.Scene {
         );
 
         const type = this.pickTypeWithoutImmediateMatch(row, col);
-        this.board[row][col] = this.makePiece(row, col, type, y - Phaser.Math.Between(0, 18));
+        this.board[row][col] = this.makePiece(
+          row,
+          col,
+          type,
+          y - Phaser.Math.Between(0, 18)
+        );
       }
     }
 
@@ -226,14 +238,16 @@ export default class Match3MvpScene extends Phaser.Scene {
 
     const left1 = col >= 1 ? this.board[row]?.[col - 1]?.type : null;
     const left2 = col >= 2 ? this.board[row]?.[col - 2]?.type : null;
+
     if (left1 && left1 === left2) {
-      candidates = candidates.filter(t => t !== left1);
+      candidates = candidates.filter(type => type !== left1);
     }
 
     const up1 = row >= 1 ? this.board[row - 1]?.[col]?.type : null;
     const up2 = row >= 2 ? this.board[row - 2]?.[col]?.type : null;
+
     if (up1 && up1 === up2) {
-      candidates = candidates.filter(t => t !== up1);
+      candidates = candidates.filter(type => type !== up1);
     }
 
     return Phaser.Utils.Array.GetRandom(candidates);
@@ -241,8 +255,14 @@ export default class Match3MvpScene extends Phaser.Scene {
 
   makePiece(row, col, type, spawnY = null) {
     const { x, y } = this.cellCenter(row, col);
-    const sprite = this.add.sprite(x, spawnY ?? y, 'fish', type + '_f01')
-      .setScale(0.19)
+
+    const sprite = this.add.sprite(
+      x,
+      spawnY ?? y,
+      'fish',
+      type + '_f01'
+    )
+      .setScale(BASE_SCALE)
       .setDepth(10)
       .setFlipX(Phaser.Math.Between(0, 1) === 1);
 
@@ -251,129 +271,89 @@ export default class Match3MvpScene extends Phaser.Scene {
       sprite,
       row,
       col,
-      visualOffsetX: 0,
-      visualOffsetY: 0,
       idleTimer: null,
-      isDiving: false
+      tailTimer: null,
+      tailPose: 0
     };
-
-    this.startIdle(piece);
-    this.startFrameAnimation(piece);
 
     if (spawnY !== null && spawnY !== y) {
       this.tweens.add({
         targets: sprite,
         y,
         duration: 280,
-        ease: 'Sine.easeOut'
+        ease: 'Sine.easeOut',
+        onComplete: () => {
+          this.startIdle(piece);
+        }
       });
+    } else {
+      this.startIdle(piece);
     }
 
+    this.startTailMicroAnimation(piece);
     return piece;
   }
 
   startIdle(piece) {
-    const sprite = piece.sprite;
-    if (!sprite?.active || piece.isDiving) return;
+    const sprite = piece?.sprite;
+    if (!sprite?.active) return;
 
-    if (piece.idleTimer) {
-      piece.idleTimer.remove(false);
-      piece.idleTimer = null;
-    }
+    this.stopIdle(piece, false);
 
-    this.tweens.killTweensOf(sprite);
-
-    const center = this.cellCenter(piece.row, piece.col);
-    const baseX = center.x + (piece.visualOffsetX || 0);
-    const baseY = center.y + (piece.visualOffsetY || 0);
-
-    sprite.setPosition(baseX, baseY);
+    const { x, y } = this.cellCenter(piece.row, piece.col);
+    sprite.setPosition(x, y);
     sprite.setAngle(0);
-
-    const frameAnimated = FRAME_ANIMATED_FISH.has(piece.type);
-    const yMax = frameAnimated
-      ? 0.35
-      : Phaser.Math.FloatBetween(3.6, 5.2);
-    const angleMax = frameAnimated
-      ? 0.08
-      : Phaser.Math.FloatBetween(1.05, 1.55);
-    const minDuration = frameAnimated ? 3400 : 2600;
-    const maxDuration = frameAnimated ? 5600 : 4400;
+    sprite.setAlpha(0.96);
+    sprite.setScale(BASE_SCALE);
 
     const cycle = () => {
-      if (!sprite.active || this.busy || piece.isDiving) return;
+      if (!sprite.active || this.busy) return;
+
       const flip = sprite.flipX ? -1 : 1;
+      const targetY = y + Phaser.Math.FloatBetween(-0.55, 0.55);
+      const targetAngle = flip * Phaser.Math.FloatBetween(-0.28, 0.28);
 
       this.tweens.add({
         targets: sprite,
-        y: baseY + Phaser.Math.FloatBetween(-yMax, yMax),
-        angle: flip * Phaser.Math.FloatBetween(-angleMax, angleMax),
-        duration: Phaser.Math.Between(minDuration, maxDuration),
-        yoyo: true,
+        y: targetY,
+        angle: targetAngle,
+        duration: Phaser.Math.Between(2600, 3900),
         ease: 'Sine.easeInOut',
         onComplete: () => {
-          if (!sprite.active || this.busy || piece.isDiving) return;
+          if (!sprite.active || this.busy) return;
+
           piece.idleTimer = this.time.delayedCall(
-            Phaser.Math.Between(120, 620),
-            cycle
+            Phaser.Math.Between(520, 980),
+            () => {
+              if (!sprite.active || this.busy) return;
+
+              this.tweens.add({
+                targets: sprite,
+                y,
+                angle: 0,
+                duration: Phaser.Math.Between(2200, 3400),
+                ease: 'Sine.easeInOut',
+                onComplete: () => {
+                  if (!sprite.active || this.busy) return;
+                  piece.idleTimer = this.time.delayedCall(
+                    Phaser.Math.Between(500, 950),
+                    cycle
+                  );
+                }
+              });
+            }
           );
         }
       });
     };
 
     piece.idleTimer = this.time.delayedCall(
-      Phaser.Math.Between(0, 900),
+      Phaser.Math.Between(250, 1100),
       cycle
     );
   }
 
-  startFrameAnimation(piece) {
-    if (!FRAME_ANIMATED_FISH.has(piece.type)) return;
-
-    const sprite = piece.sprite;
-    if (piece.frameAnimationStarted) return;
-    piece.frameAnimationStarted = true;
-
-    const frames = Array.from(
-      { length: 7 },
-      (_, index) => piece.type + '_f' + String(index + 1).padStart(2, '0')
-    );
-
-    const runCycle = () => {
-      if (!sprite.active) return;
-
-      let step = 0;
-
-      const advance = () => {
-        if (!sprite.active) return;
-
-        sprite.setFrame(frames[step]);
-        step += 1;
-
-        if (step < frames.length) {
-          const delay = piece.type === 'fish_01_goldfish'
-            ? Phaser.Math.Between(290, 430)
-            : Phaser.Math.Between(300, 450);
-
-          this.time.delayedCall(delay, advance);
-        } else {
-          this.time.delayedCall(
-            Phaser.Math.Between(650, 1650),
-            runCycle
-          );
-        }
-      };
-
-      advance();
-    };
-
-    this.time.delayedCall(
-      Phaser.Math.Between(250, 2200),
-      runCycle
-    );
-  }
-
-  stopIdle(piece, resetOffset = true) {
+  stopIdle(piece, snapToCell = true) {
     if (!piece?.sprite) return;
 
     if (piece.idleTimer) {
@@ -382,166 +362,86 @@ export default class Match3MvpScene extends Phaser.Scene {
     }
 
     this.tweens.killTweensOf(piece.sprite);
-    piece.sprite.setAngle(0);
 
-    if (resetOffset) {
-      piece.visualOffsetX = 0;
-      piece.visualOffsetY = 0;
+    if (snapToCell) {
+      const { x, y } = this.cellCenter(piece.row, piece.col);
+      piece.sprite.setPosition(x, y);
+      piece.sprite.setAngle(0);
+      piece.sprite.setScale(BASE_SCALE);
+      piece.sprite.setAlpha(0.96);
     }
-
-    const { x, y } = this.cellCenter(piece.row, piece.col);
-    piece.sprite.setPosition(
-      x + (piece.visualOffsetX || 0),
-      y + (piece.visualOffsetY || 0)
-    );
   }
 
-  scheduleAmbientDive() {
-    this.time.delayedCall(
-      Phaser.Math.Between(2800, 5200),
-      () => {
-        if (!this.busy && !this.activeDive) {
-          const candidates = [];
-
-          for (let row = 0; row < this.rows; row += 1) {
-            for (let col = 0; col < this.cols; col += 1) {
-              const piece = this.board[row]?.[col];
-              if (!piece?.sprite?.active || piece.isDiving) continue;
-
-              if (
-                this.selected &&
-                this.selected.row === row &&
-                this.selected.col === col
-              ) continue;
-
-              candidates.push(piece);
-            }
-          }
-
-          if (candidates.length > 0) {
-            this.performDive(Phaser.Utils.Array.GetRandom(candidates));
-          }
-        }
-
-        this.scheduleAmbientDive();
-      }
-    );
-  }
-
-  performDive(piece) {
-    if (!piece?.sprite?.active || this.busy || this.activeDive) return;
-
-    this.activeDive = true;
-    piece.isDiving = true;
+  startTailMicroAnimation(piece) {
+    if (!MICRO_TAIL_FISH.has(piece.type)) return;
+    if (!piece?.sprite?.active) return;
 
     const sprite = piece.sprite;
-    this.stopIdle(piece, true);
+    const baseFrame = piece.type + '_f01';
+    const tinyTailFrame = piece.type + '_f02';
 
-    const center = this.cellCenter(piece.row, piece.col);
-    const targetX = Phaser.Math.Between(-10, 10);
-    const targetY = Phaser.Math.Between(-7, 7);
-    const baseScale = 0.19;
-    const direction = sprite.flipX ? -1 : 1;
+    const scheduleNext = (delay = Phaser.Math.Between(650, 1050)) => {
+      if (!sprite.active) return;
 
-    this.playDiveBubbles(center.x, center.y + 5);
-
-    this.tweens.add({
-      targets: sprite,
-      x: center.x + direction * 8,
-      y: center.y + 10,
-      scaleX: baseScale * 0.82,
-      scaleY: baseScale * 0.82,
-      alpha: 0.42,
-      angle: direction * 4,
-      duration: 190,
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        if (!sprite.active) {
-          this.activeDive = false;
-          piece.isDiving = false;
-          return;
-        }
-
-        sprite.setPosition(
-          center.x + targetX,
-          center.y + targetY + 8
-        );
-        sprite.setAlpha(0.28);
-        sprite.setScale(baseScale * 0.78);
-        sprite.setAngle(-direction * 3);
-
-        this.playDiveBubbles(
-          center.x + targetX,
-          center.y + targetY + 4
-        );
-
-        this.tweens.add({
-          targets: sprite,
-          y: center.y + targetY,
-          scaleX: baseScale,
-          scaleY: baseScale,
-          alpha: 0.96,
-          angle: 0,
-          duration: 290,
-          ease: 'Back.easeOut',
-          onComplete: () => {
-            piece.visualOffsetX = targetX;
-            piece.visualOffsetY = targetY;
-            piece.isDiving = false;
-            this.activeDive = false;
-            this.startIdle(piece);
-          }
-        });
+      if (piece.tailTimer) {
+        piece.tailTimer.remove(false);
       }
-    });
-  }
 
-  playDiveBubbles(x, y) {
-    for (let i = 0; i < 3; i += 1) {
-      const bubble = this.add.circle(
-        x + Phaser.Math.Between(-7, 7),
-        y + Phaser.Math.Between(-4, 5),
-        Phaser.Math.FloatBetween(1.5, 3.2),
-        0xdffaff,
-        0.14
-      )
-        .setStrokeStyle(1, 0xdffaff, 0.5)
-        .setDepth(28);
+      piece.tailTimer = this.time.delayedCall(delay, () => {
+        if (!sprite.active) return;
 
-      this.tweens.add({
-        targets: bubble,
-        x: bubble.x + Phaser.Math.Between(-7, 7),
-        y: bubble.y - Phaser.Math.Between(14, 28),
-        alpha: 0,
-        duration: Phaser.Math.Between(300, 460),
-        ease: 'Sine.easeOut',
-        onComplete: () => bubble.destroy()
+        if (piece.tailPose === 0) {
+          sprite.setFrame(tinyTailFrame);
+          piece.tailPose = 1;
+
+          scheduleNext(Phaser.Math.Between(520, 820));
+        } else {
+          sprite.setFrame(baseFrame);
+          piece.tailPose = 0;
+
+          scheduleNext(Phaser.Math.Between(520, 880));
+        }
       });
-    }
+    };
+
+    sprite.setFrame(baseFrame);
+    piece.tailPose = 0;
+    scheduleNext(Phaser.Math.Between(300, 1200));
   }
 
   pointerToCell(x, y) {
-    const col = Math.floor((x - (this.boardX - this.cellSize / 2)) / this.cellSize);
-    const row = Math.floor((y - (this.boardY - this.cellSize / 2)) / this.cellSize);
+    const col = Math.floor(
+      (x - (this.boardX - this.cellSize / 2)) / this.cellSize
+    );
+    const row = Math.floor(
+      (y - (this.boardY - this.cellSize / 2)) / this.cellSize
+    );
 
-    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return null;
+    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) {
+      return null;
+    }
 
     const center = this.cellCenter(row, col);
+
     if (
       Math.abs(x - center.x) > this.cellSize / 2 ||
       Math.abs(y - center.y) > this.cellSize / 2
-    ) return null;
+    ) {
+      return null;
+    }
 
     return { row, col };
   }
 
   selectCell(row, col) {
     this.selected = { row, col };
+
     const { x, y } = this.cellCenter(row, col);
     this.selectionRing.setPosition(x, y).setVisible(true);
 
     this.tweens.killTweensOf(this.selectionRing);
-    this.selectionRing.setScale(1);
+    this.selectionRing.setScale(1).setAlpha(1);
+
     this.tweens.add({
       targets: this.selectionRing,
       scale: 1.12,
@@ -555,9 +455,14 @@ export default class Match3MvpScene extends Phaser.Scene {
 
   clearSelection() {
     this.selected = null;
+
     if (!this.selectionRing) return;
+
     this.tweens.killTweensOf(this.selectionRing);
-    this.selectionRing.setVisible(false).setAlpha(1).setScale(1);
+    this.selectionRing
+      .setVisible(false)
+      .setAlpha(1)
+      .setScale(1);
   }
 
   async trySwap(r1, c1, r2, c2) {
@@ -566,12 +471,12 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.busy = true;
     this.stopAllIdle();
 
-    await this.animateSwap(r1, c1, r2, c2);
+    await this.animateSwapDive(r1, c1, r2, c2);
 
     const matches = this.findMatches();
 
     if (matches.size === 0) {
-      await this.animateSwap(r1, c1, r2, c2);
+      await this.animateSwapDive(r1, c1, r2, c2);
       this.statusText.setText('Совпадения нет');
       this.busy = false;
       this.restartAllIdle();
@@ -594,14 +499,18 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.restartAllIdle();
   }
 
-  animateSwap(r1, c1, r2, c2) {
+  animateSwapDive(r1, c1, r2, c2) {
     return new Promise(resolve => {
       const a = this.board[r1][c1];
       const b = this.board[r2][c2];
+
       if (!a || !b) {
         resolve();
         return;
       }
+
+      const aStart = { x: a.sprite.x, y: a.sprite.y };
+      const bStart = { x: b.sprite.x, y: b.sprite.y };
 
       this.board[r1][c1] = b;
       this.board[r2][c2] = a;
@@ -611,33 +520,124 @@ export default class Match3MvpScene extends Phaser.Scene {
       b.row = r1;
       b.col = c1;
 
-      const pa = this.cellCenter(a.row, a.col);
-      const pb = this.cellCenter(b.row, b.col);
+      const aEnd = this.cellCenter(a.row, a.col);
+      const bEnd = this.cellCenter(b.row, b.col);
+
+      const horizontal = r1 === r2;
+      const arc = Phaser.Math.Between(8, 13);
+
+      const aControl = horizontal
+        ? {
+            x: (aStart.x + aEnd.x) / 2,
+            y: (aStart.y + aEnd.y) / 2 + arc
+          }
+        : {
+            x: (aStart.x + aEnd.x) / 2 + arc,
+            y: (aStart.y + aEnd.y) / 2
+          };
+
+      const bControl = horizontal
+        ? {
+            x: (bStart.x + bEnd.x) / 2,
+            y: (bStart.y + bEnd.y) / 2 - arc
+          }
+        : {
+            x: (bStart.x + bEnd.x) / 2 - arc,
+            y: (bStart.y + bEnd.y) / 2
+          };
+
+      const aDirX = Math.sign(aEnd.x - aStart.x);
+      const aDirY = Math.sign(aEnd.y - aStart.y);
+      const bDirX = Math.sign(bEnd.x - bStart.x);
+      const bDirY = Math.sign(bEnd.y - bStart.y);
+
+      const aTilt = horizontal
+        ? aDirX * 8
+        : -aDirY * 7;
+
+      const bTilt = horizontal
+        ? bDirX * 8
+        : -bDirY * 7;
+
+      this.playSwapTrail(aStart.x, aStart.y);
+      this.playSwapTrail(bStart.x, bStart.y);
+
+      this.time.delayedCall(95, () => {
+        this.playSwapTrail(aControl.x, aControl.y);
+        this.playSwapTrail(bControl.x, bControl.y);
+      });
 
       let done = 0;
-      const finish = () => {
+      const onDone = piece => {
+        piece.sprite.setAngle(0);
+        piece.sprite.setScale(BASE_SCALE);
+        piece.sprite.setAlpha(0.96);
+
+        const end = this.cellCenter(piece.row, piece.col);
+        piece.sprite.setPosition(end.x, end.y);
+
         done += 1;
         if (done === 2) resolve();
       };
 
-      this.tweens.add({
-        targets: a.sprite,
-        x: pa.x,
-        y: pa.y,
-        duration: 220,
-        ease: 'Sine.easeInOut',
-        onComplete: finish
-      });
+      const animatePiece = (piece, start, control, end, tilt) => {
+        const sprite = piece.sprite;
+
+        this.tweens.addCounter({
+          from: 0,
+          to: 1,
+          duration: 285,
+          ease: 'Sine.easeInOut',
+          onUpdate: tween => {
+            const t = tween.getValue();
+            const inv = 1 - t;
+
+            sprite.x =
+              inv * inv * start.x +
+              2 * inv * t * control.x +
+              t * t * end.x;
+
+            sprite.y =
+              inv * inv * start.y +
+              2 * inv * t * control.y +
+              t * t * end.y;
+
+            sprite.angle = Math.sin(Math.PI * t) * tilt;
+
+            const dive = Math.sin(Math.PI * t);
+            sprite.setScale(BASE_SCALE * (1 - 0.07 * dive));
+          },
+          onComplete: () => onDone(piece)
+        });
+      };
+
+      animatePiece(a, aStart, aControl, aEnd, aTilt);
+      animatePiece(b, bStart, bControl, bEnd, bTilt);
+    });
+  }
+
+  playSwapTrail(x, y) {
+    for (let i = 0; i < 2; i += 1) {
+      const bubble = this.add.circle(
+        x + Phaser.Math.Between(-5, 5),
+        y + Phaser.Math.Between(-4, 5),
+        Phaser.Math.FloatBetween(1.3, 2.7),
+        0xdffaff,
+        0.14
+      )
+        .setStrokeStyle(1, 0xdffaff, 0.48)
+        .setDepth(28);
 
       this.tweens.add({
-        targets: b.sprite,
-        x: pb.x,
-        y: pb.y,
-        duration: 220,
-        ease: 'Sine.easeInOut',
-        onComplete: finish
+        targets: bubble,
+        x: bubble.x + Phaser.Math.Between(-5, 5),
+        y: bubble.y - Phaser.Math.Between(12, 24),
+        alpha: 0,
+        duration: Phaser.Math.Between(260, 420),
+        ease: 'Sine.easeOut',
+        onComplete: () => bubble.destroy()
       });
-    });
+    }
   }
 
   findMatches() {
@@ -647,14 +647,23 @@ export default class Match3MvpScene extends Phaser.Scene {
       let runStart = 0;
 
       for (let col = 1; col <= this.cols; col += 1) {
-        const current = col < this.cols ? this.board[row][col]?.type : null;
-        const previous = this.board[row][col - 1]?.type ?? null;
+        const current =
+          col < this.cols
+            ? this.board[row][col]?.type
+            : null;
+
+        const previous =
+          this.board[row][col - 1]?.type ?? null;
 
         if (current !== previous) {
           const length = col - runStart;
+
           if (previous && length >= 3) {
-            for (let c = runStart; c < col; c += 1) matched.add(row + ':' + c);
+            for (let c = runStart; c < col; c += 1) {
+              matched.add(row + ':' + c);
+            }
           }
+
           runStart = col;
         }
       }
@@ -664,14 +673,23 @@ export default class Match3MvpScene extends Phaser.Scene {
       let runStart = 0;
 
       for (let row = 1; row <= this.rows; row += 1) {
-        const current = row < this.rows ? this.board[row][col]?.type : null;
-        const previous = this.board[row - 1][col]?.type ?? null;
+        const current =
+          row < this.rows
+            ? this.board[row][col]?.type
+            : null;
+
+        const previous =
+          this.board[row - 1][col]?.type ?? null;
 
         if (current !== previous) {
           const length = row - runStart;
+
           if (previous && length >= 3) {
-            for (let r = runStart; r < row; r += 1) matched.add(r + ':' + col);
+            for (let r = runStart; r < row; r += 1) {
+              matched.add(r + ':' + col);
+            }
           }
+
           runStart = row;
         }
       }
@@ -700,7 +718,10 @@ export default class Match3MvpScene extends Phaser.Scene {
 
   clearMatches(matches, cascade) {
     return new Promise(resolve => {
-      const cells = [...matches].map(key => key.split(':').map(Number));
+      const cells = [...matches].map(key =>
+        key.split(':').map(Number)
+      );
+
       if (cells.length === 0) {
         resolve();
         return;
@@ -709,70 +730,233 @@ export default class Match3MvpScene extends Phaser.Scene {
       this.matchedTotal += cells.length;
       this.scoreText.setText(String(this.matchedTotal));
 
-      let remaining = cells.length;
+      const groups = this.buildMatchGroups(cells);
+      let groupsRemaining = groups.length;
 
-      cells.forEach(([row, col]) => {
-        const piece = this.board[row][col];
-        if (!piece) {
-          remaining -= 1;
-          if (remaining === 0) resolve();
+      const finishGroup = () => {
+        groupsRemaining -= 1;
+        if (groupsRemaining === 0) resolve();
+      };
+
+      groups.forEach(group => {
+        const pieces = group
+          .map(([row, col]) => ({
+            row,
+            col,
+            piece: this.board[row][col]
+          }))
+          .filter(item => item.piece?.sprite?.active);
+
+        if (pieces.length === 0) {
+          finishGroup();
           return;
         }
 
-        this.playMatchFx(piece.sprite.x, piece.sprite.y, cascade);
+        this.animateMatchSchoolDive(
+          pieces,
+          cascade,
+          () => {
+            pieces.forEach(({ row, col, piece }) => {
+              if (piece.tailTimer) {
+                piece.tailTimer.remove(false);
+                piece.tailTimer = null;
+              }
 
-        this.tweens.add({
-          targets: piece.sprite,
-          alpha: 0,
-          scaleX: piece.sprite.scaleX * 0.35,
-          scaleY: piece.sprite.scaleY * 0.35,
-          duration: 240,
-          ease: 'Back.easeIn',
-          onComplete: () => {
-            piece.sprite.destroy();
-            this.board[row][col] = null;
-            remaining -= 1;
-            if (remaining === 0) resolve();
+              if (piece.sprite?.active) {
+                piece.sprite.destroy();
+              }
+
+              this.board[row][col] = null;
+            });
+
+            finishGroup();
           }
-        });
+        );
       });
     });
   }
 
-  playMatchFx(x, y, cascade) {
-    const ring = this.add.ellipse(x, y, 18, 10, 0x000000, 0)
-      .setStrokeStyle(2, 0xb9f5ff, 0.45)
+  buildMatchGroups(cells) {
+    const remaining = new Set(
+      cells.map(([row, col]) => row + ':' + col)
+    );
+    const groups = [];
+
+    while (remaining.size > 0) {
+      const first = remaining.values().next().value;
+      remaining.delete(first);
+
+      const queue = [first];
+      const group = [];
+
+      while (queue.length > 0) {
+        const key = queue.shift();
+        const [row, col] = key.split(':').map(Number);
+        group.push([row, col]);
+
+        const neighbors = [
+          [row - 1, col],
+          [row + 1, col],
+          [row, col - 1],
+          [row, col + 1]
+        ];
+
+        neighbors.forEach(([nr, nc]) => {
+          const neighborKey = nr + ':' + nc;
+          if (remaining.has(neighborKey)) {
+            remaining.delete(neighborKey);
+            queue.push(neighborKey);
+          }
+        });
+      }
+
+      groups.push(group);
+    }
+
+    return groups;
+  }
+
+  animateMatchSchoolDive(items, cascade, onComplete) {
+    const center = items.reduce(
+      (acc, item) => {
+        acc.x += item.piece.sprite.x;
+        acc.y += item.piece.sprite.y;
+        return acc;
+      },
+      { x: 0, y: 0 }
+    );
+
+    center.x /= items.length;
+    center.y /= items.length;
+
+    this.playSchoolDiveFx(center.x, center.y, items.length, cascade);
+
+    let phaseOneRemaining = items.length;
+
+    const startDivePhase = () => {
+      let phaseTwoRemaining = items.length;
+
+      items.forEach((item, index) => {
+        const sprite = item.piece.sprite;
+        const side = sprite.x < center.x ? -1 : 1;
+        const tilt = side * Phaser.Math.Between(6, 10);
+
+        this.tweens.add({
+          targets: sprite,
+          x: sprite.x + (center.x - sprite.x) * 0.16,
+          y: sprite.y + Phaser.Math.Between(10, 15),
+          angle: tilt,
+          scaleX: BASE_SCALE * 0.60,
+          scaleY: BASE_SCALE * 0.60,
+          alpha: 0,
+          duration: 190 + index * 12,
+          ease: 'Sine.easeIn',
+          onComplete: () => {
+            phaseTwoRemaining -= 1;
+            if (phaseTwoRemaining === 0) {
+              onComplete();
+            }
+          }
+        });
+      });
+    };
+
+    items.forEach((item, index) => {
+      const sprite = item.piece.sprite;
+
+      if (item.piece.idleTimer) {
+        item.piece.idleTimer.remove(false);
+        item.piece.idleTimer = null;
+      }
+
+      this.tweens.killTweensOf(sprite);
+
+      const dx = Phaser.Math.Clamp(
+        (center.x - sprite.x) * 0.14,
+        -9,
+        9
+      );
+
+      const dy = Phaser.Math.Clamp(
+        (center.y - sprite.y) * 0.14,
+        -7,
+        7
+      );
+
+      this.tweens.add({
+        targets: sprite,
+        x: sprite.x + dx,
+        y: sprite.y + dy,
+        angle: (index % 2 === 0 ? 1 : -1) * Phaser.Math.Between(3, 6),
+        duration: 105,
+        ease: 'Sine.easeOut',
+        onComplete: () => {
+          phaseOneRemaining -= 1;
+          if (phaseOneRemaining === 0) {
+            startDivePhase();
+          }
+        }
+      });
+    });
+  }
+
+  playSchoolDiveFx(x, y, count, cascade) {
+    const ring = this.add.ellipse(x, y + 7, 22, 12, 0x000000, 0)
+      .setStrokeStyle(2, 0xb9f5ff, 0.42)
       .setDepth(25);
 
     this.tweens.add({
       targets: ring,
-      scaleX: 3.0 + cascade * 0.12,
-      scaleY: 2.2 + cascade * 0.08,
+      scaleX: 3.0 + Math.min(0.5, cascade * 0.08),
+      scaleY: 2.1 + Math.min(0.35, cascade * 0.05),
       alpha: 0,
-      duration: 330,
+      duration: 380,
       ease: 'Sine.easeOut',
       onComplete: () => ring.destroy()
     });
 
-    for (let i = 0; i < 3; i += 1) {
+    const bubbleCount = Phaser.Math.Clamp(5 + count, 7, 12);
+
+    for (let i = 0; i < bubbleCount; i += 1) {
       const bubble = this.add.circle(
-        x + Phaser.Math.Between(-14, 14),
-        y + Phaser.Math.Between(-8, 8),
-        Phaser.Math.Between(2, 4),
-        0xdffaff,
-        0.18
-      ).setStrokeStyle(1, 0xdffaff, 0.55).setDepth(26);
+        x + Phaser.Math.Between(-22, 22),
+        y + Phaser.Math.Between(-5, 16),
+        Phaser.Math.FloatBetween(1.5, 3.8),
+        0xe4fbff,
+        0.15
+      )
+        .setStrokeStyle(1, 0xe4fbff, 0.52)
+        .setDepth(27);
 
       this.tweens.add({
         targets: bubble,
-        x: bubble.x + Phaser.Math.Between(-10, 10),
-        y: bubble.y - Phaser.Math.Between(20, 42),
+        x: bubble.x + Phaser.Math.Between(-9, 9),
+        y: bubble.y - Phaser.Math.Between(22, 48),
         alpha: 0,
-        duration: Phaser.Math.Between(340, 520),
+        duration: Phaser.Math.Between(330, 560),
         ease: 'Sine.easeOut',
         onComplete: () => bubble.destroy()
       });
     }
+
+    const flash = this.add.ellipse(
+      x,
+      y + 4,
+      36,
+      22,
+      0xcff8ff,
+      0.12
+    ).setDepth(24);
+
+    this.tweens.add({
+      targets: flash,
+      scaleX: 1.8,
+      scaleY: 1.5,
+      alpha: 0,
+      duration: 250,
+      ease: 'Quad.easeOut',
+      onComplete: () => flash.destroy()
+    });
   }
 
   collapseBoard() {
@@ -788,21 +972,25 @@ export default class Match3MvpScene extends Phaser.Scene {
         if (row !== writeRow) {
           this.board[writeRow][col] = piece;
           this.board[row][col] = null;
+
           piece.row = writeRow;
           piece.col = col;
 
           const target = this.cellCenter(writeRow, col);
 
-          tweens.push(new Promise(resolve => {
-            this.tweens.add({
-              targets: piece.sprite,
-              x: target.x,
-              y: target.y,
-              duration: 250 + (writeRow - row) * 45,
-              ease: 'Sine.easeOut',
-              onComplete: resolve
-            });
-          }));
+          tweens.push(
+            new Promise(resolve => {
+              this.tweens.add({
+                targets: piece.sprite,
+                x: target.x,
+                y: target.y,
+                angle: 0,
+                duration: 250 + (writeRow - row) * 45,
+                ease: 'Sine.easeOut',
+                onComplete: resolve
+              });
+            })
+          );
         }
 
         writeRow -= 1;
@@ -823,16 +1011,25 @@ export default class Match3MvpScene extends Phaser.Scene {
       const emptyRows = [];
 
       for (let row = 0; row < this.rows; row += 1) {
-        if (!this.board[row][col]) emptyRows.push(row);
+        if (!this.board[row][col]) {
+          emptyRows.push(row);
+        }
       }
 
       emptyRows.forEach((row, index) => {
         const type = Phaser.Utils.Array.GetRandom(FISH_TYPES);
         const { x, y } = this.cellCenter(row, col);
-        const spawnY = this.boardY - this.cellSize * (emptyRows.length - index + 0.8);
+        const spawnY =
+          this.boardY -
+          this.cellSize * (emptyRows.length - index + 0.8);
 
-        const sprite = this.add.sprite(x, spawnY, 'fish', type + '_f01')
-          .setScale(0.19)
+        const sprite = this.add.sprite(
+          x,
+          spawnY,
+          'fish',
+          type + '_f01'
+        )
+          .setScale(BASE_SCALE)
           .setDepth(10)
           .setFlipX(Phaser.Math.Between(0, 1) === 1);
 
@@ -841,23 +1038,25 @@ export default class Match3MvpScene extends Phaser.Scene {
           sprite,
           row,
           col,
-          visualOffsetX: 0,
-          visualOffsetY: 0,
           idleTimer: null,
-          isDiving: false
+          tailTimer: null,
+          tailPose: 0
         };
-        this.board[row][col] = piece;
-        this.startFrameAnimation(piece);
 
-        tweens.push(new Promise(resolve => {
-          this.tweens.add({
-            targets: sprite,
-            y,
-            duration: 320 + index * 55,
-            ease: 'Sine.easeOut',
-            onComplete: resolve
-          });
-        }));
+        this.board[row][col] = piece;
+        this.startTailMicroAnimation(piece);
+
+        tweens.push(
+          new Promise(resolve => {
+            this.tweens.add({
+              targets: sprite,
+              y,
+              duration: 320 + index * 55,
+              ease: 'Sine.easeOut',
+              onComplete: resolve
+            });
+          })
+        );
       });
     }
 
@@ -868,7 +1067,9 @@ export default class Match3MvpScene extends Phaser.Scene {
     for (let row = 0; row < this.rows; row += 1) {
       for (let col = 0; col < this.cols; col += 1) {
         const piece = this.board[row][col];
-        if (piece) this.stopIdle(piece);
+        if (piece) {
+          this.stopIdle(piece, true);
+        }
       }
     }
   }
@@ -877,7 +1078,9 @@ export default class Match3MvpScene extends Phaser.Scene {
     for (let row = 0; row < this.rows; row += 1) {
       for (let col = 0; col < this.cols; col += 1) {
         const piece = this.board[row][col];
-        if (piece) this.startIdle(piece);
+        if (piece) {
+          this.startIdle(piece);
+        }
       }
     }
   }
