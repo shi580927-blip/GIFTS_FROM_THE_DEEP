@@ -1,4 +1,4 @@
-import { BLOCKERS, BLOCKER_ORDER } from '../config/blockers.js?v=20260922-blockers-v1';
+import { BLOCKERS, BLOCKER_ORDER } from '../config/blockers.js?v=20260922-blockers-v2';
 
 export default class BlockerTestScene extends Phaser.Scene {
   constructor() {
@@ -14,15 +14,15 @@ export default class BlockerTestScene extends Phaser.Scene {
 
     this.load.atlas(
       'blockers_all',
-      'assets/atlas/blockers/blockers_all_atlas.png?v=20260922-blockers-v1',
-      'assets/atlas/blockers/blockers_all_atlas.json?v=20260922-blockers-v1'
+      'assets/atlas/blockers/blockers_all_atlas.png?v=20260922-blockers-v2',
+      'assets/atlas/blockers/blockers_all_atlas.json?v=20260922-blockers-v2'
     );
   }
 
   create() {
     this.cameras.main.setBackgroundColor('#052b3d');
 
-    this.add.text(500, 27, 'Дары глубин · препятствия v1', {
+    this.add.text(500, 27, 'Дары глубин · препятствия v2', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '24px',
       color: '#ffffff'
@@ -55,6 +55,41 @@ export default class BlockerTestScene extends Phaser.Scene {
 
     const fishSprites = [];
 
+    const startFishIdle = (fish, x, y, flipX) => {
+      this.tweens.killTweensOf(fish);
+      fish.setPosition(x, y);
+      fish.setAngle(0);
+      fish.setData('frozenByBlocker', false);
+
+      const move = () => {
+        if (!fish.active || fish.getData('frozenByBlocker')) return;
+
+        const targetY = y + Phaser.Math.FloatBetween(-3.8, 3.8);
+        const rawAngle = Phaser.Math.FloatBetween(-1.1, 1.1);
+
+        this.tweens.add({
+          targets: fish,
+          y: targetY,
+          angle: flipX ? -rawAngle : rawAngle,
+          duration: Phaser.Math.Between(2700, 4300),
+          ease: 'Sine.easeInOut',
+          onComplete: () => {
+            if (!fish.active || fish.getData('frozenByBlocker')) return;
+            this.time.delayedCall(Phaser.Math.Between(120, 620), move);
+          }
+        });
+      };
+
+      this.time.delayedCall(Phaser.Math.Between(0, 900), move);
+    };
+
+    const freezeFish = (fish, x, y) => {
+      fish.setData('frozenByBlocker', true);
+      this.tweens.killTweensOf(fish);
+      fish.setPosition(x, y);
+      fish.setAngle(0);
+    };
+
     for (let row = 0; row < rows; row += 1) {
       fishSprites[row] = [];
       for (let col = 0; col < cols; col += 1) {
@@ -77,24 +112,16 @@ export default class BlockerTestScene extends Phaser.Scene {
         );
 
         const fishName = fishNames[(row * 3 + col) % fishNames.length];
+        const flipX = (row + col) % 2 === 0;
         const fish = this.add.sprite(x, y, 'fish', fishName + '_f01');
         fish.setScale(0.225);
-        fish.setFlipX((row + col) % 2 === 0);
+        fish.setFlipX(flipX);
         fish.setAlpha(0.96);
+        fish.setData('fishName', fishName);
+        fish.setData('flipXBase', flipX);
         fishSprites[row][col] = fish;
 
-        if (!['fish_01_goldfish', 'fish_06_clownfish'].includes(fishName)) {
-          this.tweens.add({
-            targets: fish,
-            y: y + Phaser.Math.FloatBetween(-3.8, 3.8),
-            angle: Phaser.Math.FloatBetween(-1.1, 1.1),
-            duration: Phaser.Math.Between(2700, 4300),
-            yoyo: true,
-            repeat: -1,
-            delay: Phaser.Math.Between(0, 1600),
-            ease: 'Sine.easeInOut'
-          });
-        }
+        startFishIdle(fish, x, y, flipX);
       }
     }
 
@@ -125,6 +152,7 @@ export default class BlockerTestScene extends Phaser.Scene {
           colors[type],
           0.72
         );
+
         this.tweens.add({
           targets: dot,
           x: dot.x + Phaser.Math.Between(-28, 28),
@@ -145,14 +173,28 @@ export default class BlockerTestScene extends Phaser.Scene {
       const fish = fishSprites[row][col];
 
       if (cfg.layer === 'solid') {
+        this.tweens.killTweensOf(fish);
         fish.setVisible(false);
+      } else {
+        // Approved rule: a fish visible behind any overlay blocker is frozen.
+        freezeFish(fish, x, y);
       }
 
       const sprite = this.add.sprite(x, y, cfg.atlas, cfg.frames[0]);
-      sprite.setScale(type === 'sand' ? 0.205 : type === 'net' ? 0.19 : 0.205);
+
+      const blockerScale = {
+        seaweed: 0.205,
+        sand: 0.215,
+        rock: 0.205,
+        shell: 0.205,
+        net: 0.19,
+        ice: 0.215
+      };
+
+      sprite.setScale(blockerScale[type] || 0.205);
       sprite.setInteractive({ useHandCursor: true });
 
-      if (type === 'sand') sprite.setAlpha(0.82);
+      if (type === 'sand') sprite.setAlpha(0.84);
       if (type === 'ice') sprite.setAlpha(0.88);
       if (type === 'net') sprite.setAlpha(0.94);
 
@@ -160,7 +202,10 @@ export default class BlockerTestScene extends Phaser.Scene {
         this.tweens.add({
           targets: sprite,
           angle: { from: -1.2, to: 1.2 },
-          scaleX: { from: sprite.scaleX * 0.985, to: sprite.scaleX * 1.015 },
+          scaleX: {
+            from: sprite.scaleX * 0.985,
+            to: sprite.scaleX * 1.015
+          },
           duration: 2600,
           yoyo: true,
           repeat: -1,
@@ -194,6 +239,7 @@ export default class BlockerTestScene extends Phaser.Scene {
 
         if (stage >= cfg.frames.length) {
           sprite.disableInteractive();
+
           this.tweens.add({
             targets: [sprite, status],
             alpha: 0,
@@ -201,17 +247,25 @@ export default class BlockerTestScene extends Phaser.Scene {
             onComplete: () => {
               sprite.destroy();
               status.destroy();
+
               if (cfg.layer === 'solid') {
                 fish.setVisible(true);
                 fish.setAlpha(0);
+
                 this.tweens.add({
                   targets: fish,
                   alpha: 0.96,
-                  duration: 320
+                  duration: 320,
+                  onComplete: () => {
+                    startFishIdle(fish, x, y, fish.getData('flipXBase'));
+                  }
                 });
+              } else {
+                startFishIdle(fish, x, y, fish.getData('flipXBase'));
               }
             }
           });
+
           return;
         }
 
@@ -224,6 +278,7 @@ export default class BlockerTestScene extends Phaser.Scene {
 
     const labelY = 650;
     const labelStartX = 150;
+
     BLOCKER_ORDER.forEach((type, i) => {
       const names = {
         seaweed: 'Водоросли',
@@ -233,6 +288,7 @@ export default class BlockerTestScene extends Phaser.Scene {
         net: 'Сеть',
         ice: 'Лёд'
       };
+
       this.add.text(labelStartX + i * 142, labelY, names[type], {
         fontFamily: 'Arial, sans-serif',
         fontSize: '14px',
@@ -240,10 +296,15 @@ export default class BlockerTestScene extends Phaser.Scene {
       }).setOrigin(0.5);
     });
 
-    this.add.text(500, 690, 'Тест: масштаб · читаемость · стадии · overlay/solid · визуальный удар', {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: '13px',
-      color: '#8ccbd9'
-    }).setOrigin(0.5);
+    this.add.text(
+      500,
+      690,
+      'v2: крупнее песок и лёд · рыба под overlay полностью застывает',
+      {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '13px',
+        color: '#8ccbd9'
+      }
+    ).setOrigin(0.5);
   }
 }
