@@ -399,7 +399,6 @@ export default class Match3MvpScene extends Phaser.Scene {
         targets: a.sprite,
         x: pa.x,
         y: pa.y,
-        scaleX: a.sprite.scaleX * 0.96,
         duration: 220,
         ease: 'Sine.easeInOut',
         onComplete: finish
@@ -409,7 +408,6 @@ export default class Match3MvpScene extends Phaser.Scene {
         targets: b.sprite,
         x: pb.x,
         y: pb.y,
-        scaleX: b.sprite.scaleX * 0.96,
         duration: 220,
         ease: 'Sine.easeInOut',
         onComplete: finish
