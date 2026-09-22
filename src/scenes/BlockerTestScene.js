@@ -1,4 +1,8 @@
 import { BLOCKERS, BLOCKER_ORDER } from '../config/blockers.js?v=20260922-blockers-v2';
+import {
+  playBlockerDamageFX,
+  playBlockerDestroyFX
+} from '../fx/blockerFx.js?v=20260922-blocker-fx-v1';
 
 export default class BlockerTestScene extends Phaser.Scene {
   constructor() {
@@ -22,13 +26,13 @@ export default class BlockerTestScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor('#052b3d');
 
-    this.add.text(500, 27, 'Дары глубин · препятствия v2', {
+    this.add.text(500, 27, 'Дары глубин · препятствия + FX', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '24px',
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    this.add.text(500, 55, 'Нажимай на препятствие — следующий удар / стадия разрушения', {
+    this.add.text(500, 55, 'Клик: повреждение · последний клик: яркий водный FX разрушения', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '13px',
       color: '#a9dbea'
@@ -92,6 +96,7 @@ export default class BlockerTestScene extends Phaser.Scene {
 
     for (let row = 0; row < rows; row += 1) {
       fishSprites[row] = [];
+
       for (let col = 0; col < cols; col += 1) {
         const x = startX + col * cellSize;
         const y = startY + row * cellSize;
@@ -103,6 +108,7 @@ export default class BlockerTestScene extends Phaser.Scene {
           cellSize - 4,
           12
         );
+
         grid.strokeRoundedRect(
           x - cellSize / 2 + 2,
           y - cellSize / 2 + 2,
@@ -114,13 +120,14 @@ export default class BlockerTestScene extends Phaser.Scene {
         const fishName = fishNames[(row * 3 + col) % fishNames.length];
         const flipX = (row + col) % 2 === 0;
         const fish = this.add.sprite(x, y, 'fish', fishName + '_f01');
+
         fish.setScale(0.225);
         fish.setFlipX(flipX);
         fish.setAlpha(0.96);
         fish.setData('fishName', fishName);
         fish.setData('flipXBase', flipX);
-        fishSprites[row][col] = fish;
 
+        fishSprites[row][col] = fish;
         startFishIdle(fish, x, y, flipX);
       }
     }
@@ -134,38 +141,6 @@ export default class BlockerTestScene extends Phaser.Scene {
       { type: 'ice', row: 5, col: 6 }
     ];
 
-    const makeHitFx = (x, y, type) => {
-      const colors = {
-        seaweed: 0x75d36b,
-        sand: 0xf1d09b,
-        rock: 0xb7c4c9,
-        shell: 0xffd1a6,
-        net: 0xd9b07c,
-        ice: 0xbcefff
-      };
-
-      for (let i = 0; i < 7; i += 1) {
-        const dot = this.add.circle(
-          x + Phaser.Math.Between(-10, 10),
-          y + Phaser.Math.Between(-10, 10),
-          Phaser.Math.FloatBetween(1.5, 3.2),
-          colors[type],
-          0.72
-        );
-
-        this.tweens.add({
-          targets: dot,
-          x: dot.x + Phaser.Math.Between(-28, 28),
-          y: dot.y + Phaser.Math.Between(-32, 18),
-          alpha: 0,
-          scale: 0.3,
-          duration: Phaser.Math.Between(380, 700),
-          ease: 'Quad.easeOut',
-          onComplete: () => dot.destroy()
-        });
-      }
-    };
-
     const addBlocker = ({ type, row, col }) => {
       const cfg = BLOCKERS[type];
       const x = startX + col * cellSize;
@@ -176,7 +151,7 @@ export default class BlockerTestScene extends Phaser.Scene {
         this.tweens.killTweensOf(fish);
         fish.setVisible(false);
       } else {
-        // Approved rule: a fish visible behind any overlay blocker is frozen.
+        // Approved rule: all fish under overlay blockers are visually frozen.
         freezeFish(fish, x, y);
       }
 
@@ -193,6 +168,7 @@ export default class BlockerTestScene extends Phaser.Scene {
 
       sprite.setScale(blockerScale[type] || 0.205);
       sprite.setInteractive({ useHandCursor: true });
+      sprite.setDepth(12);
 
       if (type === 'sand') sprite.setAlpha(0.84);
       if (type === 'ice') sprite.setAlpha(0.88);
@@ -221,10 +197,16 @@ export default class BlockerTestScene extends Phaser.Scene {
         color: '#ffffff',
         backgroundColor: '#073449aa',
         padding: { x: 4, y: 2 }
-      }).setOrigin(0.5).setDepth(20);
+      }).setOrigin(0.5).setDepth(24);
 
       sprite.on('pointerdown', () => {
-        makeHitFx(x, y, type);
+        const finalHit = stage + 1 >= cfg.frames.length;
+
+        if (finalHit) {
+          playBlockerDestroyFX(this, type, x, y);
+        } else {
+          playBlockerDamageFX(this, type, x, y);
+        }
 
         this.tweens.add({
           targets: sprite,
@@ -243,7 +225,8 @@ export default class BlockerTestScene extends Phaser.Scene {
           this.tweens.add({
             targets: [sprite, status],
             alpha: 0,
-            duration: 260,
+            duration: 240,
+            delay: 45,
             onComplete: () => {
               sprite.destroy();
               status.destroy();
@@ -255,7 +238,8 @@ export default class BlockerTestScene extends Phaser.Scene {
                 this.tweens.add({
                   targets: fish,
                   alpha: 0.96,
-                  duration: 320,
+                  duration: 330,
+                  ease: 'Sine.easeOut',
                   onComplete: () => {
                     startFishIdle(fish, x, y, fish.getData('flipXBase'));
                   }
@@ -299,7 +283,7 @@ export default class BlockerTestScene extends Phaser.Scene {
     this.add.text(
       500,
       690,
-      'v2: крупнее песок и лёд · рыба под overlay полностью застывает',
+      'FX v1: водная волна + пузырьки + материал препятствия · overlay-рыба застывает',
       {
         fontFamily: 'Arial, sans-serif',
         fontSize: '13px',
