@@ -53,6 +53,8 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.matchedTotal = 0;
     this.hintTimer = null;
     this.hintObjects = [];
+    this.hintTweens = [];
+    this.hintSprites = [];
     this.hintDelay = 5000;
 
     this.createBackdrop();
@@ -621,6 +623,20 @@ export default class Match3MvpScene extends Phaser.Scene {
 
     if (!resetVisuals) return;
 
+    this.hintTweens.forEach(tween => {
+      if (tween?.isPlaying) tween.stop();
+      if (tween?.destroy) tween.destroy();
+    });
+    this.hintTweens = [];
+
+    this.hintSprites.forEach(sprite => {
+      if (sprite?.active) {
+        sprite.setScale(BASE_SCALE);
+        sprite.setAlpha(0.96);
+      }
+    });
+    this.hintSprites = [];
+
     this.hintObjects.forEach(obj => {
       if (obj?.active) {
         this.tweens.killTweensOf(obj);
@@ -699,7 +715,7 @@ export default class Match3MvpScene extends Phaser.Scene {
         .setDepth(29);
       this.hintObjects.push(ring);
 
-      this.tweens.add({
+      const ringTween = this.tweens.add({
         targets: ring,
         scale: { from: 0.88, to: 1.18 },
         alpha: { from: 0.85, to: 0.08 },
@@ -710,15 +726,19 @@ export default class Match3MvpScene extends Phaser.Scene {
         onComplete: () => {
           if (ring.active) ring.destroy();
           this.hintObjects = this.hintObjects.filter(obj => obj !== ring);
+          this.hintTweens = this.hintTweens.filter(tween => tween !== ringTween);
         }
       });
+      this.hintTweens.push(ringTween);
     };
 
     makeRing(aCenter);
     makeRing(bCenter);
 
     const pulse = sprite => {
-      this.tweens.add({
+      if (!this.hintSprites.includes(sprite)) this.hintSprites.push(sprite);
+
+      const pulseTween = this.tweens.add({
         targets: sprite,
         scaleX: BASE_SCALE * 1.10,
         scaleY: BASE_SCALE * 1.10,
@@ -731,8 +751,11 @@ export default class Match3MvpScene extends Phaser.Scene {
           if (!sprite.active) return;
           sprite.setScale(BASE_SCALE);
           sprite.setAlpha(0.96);
+          this.hintSprites = this.hintSprites.filter(item => item !== sprite);
+          this.hintTweens = this.hintTweens.filter(tween => tween !== pulseTween);
         }
       });
+      this.hintTweens.push(pulseTween);
     };
 
     pulse(aSprite);
