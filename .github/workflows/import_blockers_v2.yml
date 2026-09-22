@@ -1,0 +1,40 @@
+name: Import blocker assets v2
+
+on:
+  push:
+    paths:
+      - ".github/workflows/import_blockers_v2.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download blockers v2 package
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 'https://sdmntpritalynorth.oaiusercontent.com/files/00000000-5d34-8246-9069-c4f9dcc72efc/raw?se=2026-09-22T18%3A00%3A05Z&sp=r&sv=2026-02-06&sr=b&scid=914e13a2-ac31-5bec-8b0e-2400d5f241d5&skoid=5bfb38a5-43fb-4c63-80a1-6ae1e97e2e16&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-22T15%3A15%3A13Z&ske=2026-09-23T15%3A15%3A13Z&sks=b&skv=2026-02-06&sig=6BQiZdXinVosBaSNkbXz3d3dyCcSqt/jBVQh0S54T5I%3D' -o /tmp/blockers_v2.zip
+          rm -rf /tmp/blockers_v2
+          mkdir -p /tmp/blockers_v2
+          unzip -q /tmp/blockers_v2.zip -d /tmp/blockers_v2
+          mkdir -p assets_source/blockers assets/atlas/blockers
+          cp -f /tmp/blockers_v2/assets_source/blockers/*.png assets_source/blockers/
+          cp -f /tmp/blockers_v2/assets/atlas/blockers/* assets/atlas/blockers/
+
+      - name: Commit blockers v2
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets_source/blockers assets/atlas/blockers
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "Update sand and ice blockers to v2"
+          git push
