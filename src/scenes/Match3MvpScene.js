@@ -666,10 +666,15 @@ export default class Match3MvpScene extends Phaser.Scene {
           const b = this.board[nr]?.[nc];
           if (!b || this.cellBlocksSwap(nr, nc)) continue;
 
+          if (a.type === b.type) continue;
+
           this.board[row][col] = b;
           this.board[nr][nc] = a;
 
-          const hasMatch = this.findMatches().size > 0;
+          const matches = this.findMatches();
+          const hasMatch =
+            matches.has(row + ':' + col) ||
+            matches.has(nr + ':' + nc);
 
           this.board[row][col] = a;
           this.board[nr][nc] = b;
