@@ -1,3 +1,9 @@
+import { BLOCKERS } from '../config/blockers.js?v=20260922-blockers-v2';
+import {
+  playBlockerDamageFX,
+  playBlockerDestroyFX
+} from '../fx/blockerFx.js?v=20260922-blocker-fx-v1';
+
 const FISH_TYPES = [
   'fish_01_goldfish',
   'fish_02_blue_tang',
@@ -7,7 +13,6 @@ const FISH_TYPES = [
   'fish_06_clownfish'
 ];
 
-const GOLD_FISH = 'fish_01_goldfish';
 
 const BASE_SCALE = 0.19;
 
@@ -22,6 +27,12 @@ export default class Match3MvpScene extends Phaser.Scene {
       'assets/atlas/fish/fish_atlas.png?v=20260921-static-sway-v3',
       'assets/atlas/fish/fish_atlas.json?v=20260921-static-sway-v3'
     );
+
+    this.load.atlas(
+      'blockers_all',
+      'assets/atlas/blockers/blockers_all_atlas.png?v=20260922-blockers-v2',
+      'assets/atlas/blockers/blockers_all_atlas.json?v=20260922-blockers-v2'
+    );
   }
 
   create() {
@@ -33,6 +44,9 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.boardX = 170;
     this.boardY = 100;
     this.board = [];
+    this.blockers = [];
+    this.blockersEnabled =
+      new URLSearchParams(window.location.search).get('blockers') !== '0';
     this.selected = null;
     this.busy = false;
     this.moves = 20;
@@ -41,6 +55,9 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.createBackdrop();
     this.createHud();
     this.createBoard();
+    if (this.blockersEnabled) {
+      this.createPlayableBlockers();
+    }
 
     this.input.on('pointerdown', pointer => {
       if (this.busy) return;
@@ -53,6 +70,12 @@ export default class Match3MvpScene extends Phaser.Scene {
 
       const piece = this.board[cell.row]?.[cell.col];
       if (!piece) return;
+
+      if (this.cellBlocksSwap(cell.row, cell.col)) {
+        this.clearSelection();
+        this.statusText.setText('Эта рыба пока заблокирована');
+        return;
+      }
 
       if (!this.selected) {
         this.selectCell(cell.row, cell.col);
@@ -109,7 +132,7 @@ export default class Match3MvpScene extends Phaser.Scene {
       color: '#e6fbff'
     }).setOrigin(0.5);
 
-    this.add.text(805, 124, 'PLAYABLE MVP · MATCH CLEAR v4', {
+    this.add.text(805, 124, 'PLAYABLE · BLOCKERS v1', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '12px',
       color: '#87d8ea'
@@ -176,7 +199,7 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.add.text(
       805,
       592,
-      'Тест: мягкий idle · плавание при swap\nиспуганный уход · лавирование · пузыри',
+      'Тест: базовый match-3 + препятствия\nрыбы: sway без покадрового idle',
       {
         fontFamily: 'Arial, sans-serif',
         fontSize: '12px',
@@ -269,8 +292,7 @@ export default class Match3MvpScene extends Phaser.Scene {
       row,
       col,
       idleTimer: null,
-      tailTimer: null,
-      tailPose: 0
+      frozenByBlocker: false
     };
 
     if (spawnY !== null && spawnY !== y) {
@@ -287,7 +309,6 @@ export default class Match3MvpScene extends Phaser.Scene {
       this.startIdle(piece);
     }
 
-    this.startTailMicroAnimation(piece);
     return piece;
   }
 
@@ -296,6 +317,15 @@ export default class Match3MvpScene extends Phaser.Scene {
     if (!sprite?.active) return;
 
     this.stopIdle(piece, false);
+
+    if (piece.frozenByBlocker) {
+      const frozenCenter = this.cellCenter(piece.row, piece.col);
+      sprite.setPosition(frozenCenter.x, frozenCenter.y);
+      sprite.setAngle(0);
+      sprite.setScale(BASE_SCALE);
+      sprite.setAlpha(0.96);
+      return;
+    }
 
     const { x, y } = this.cellCenter(piece.row, piece.col);
     sprite.setPosition(x, y);
@@ -374,87 +404,194 @@ export default class Match3MvpScene extends Phaser.Scene {
     }
   }
 
-  startTailMicroAnimation(piece) {
-    // Clownfish has no frame animation; it only shares the gentle water sway.
-    if (piece.type !== GOLD_FISH) return;
-    if (!piece?.sprite?.active) return;
+  createPlayableBlockers() {
+    for (let row = 0; row < this.rows; row += 1) {
+      this.blockers[row] = Array(this.cols).fill(null);
+    }
 
-    const sprite = piece.sprite;
-    const baseFrame = GOLD_FISH + '_f01';
-    const tailFrames = [
-      GOLD_FISH + '_f02',
-      GOLD_FISH + '_f03',
-      GOLD_FISH + '_f04',
-      GOLD_FISH + '_f05',
-      GOLD_FISH + '_f06',
-      GOLD_FISH + '_f07'
+    const placements = [
+      { type: 'seaweed', row: 1, col: 2 },
+      { type: 'sand', row: 2, col: 5 },
+      { type: 'rock', row: 3, col: 1 },
+      { type: 'shell', row: 4, col: 6 },
+      { type: 'net', row: 5, col: 3 },
+      { type: 'ice', row: 6, col: 5 }
     ];
 
-    let lastTailFrame = null;
+    placements.forEach(def => this.addPlayableBlocker(def));
+    this.syncOverlayFreezeState();
+  }
 
-    const scheduleBase = () => {
-      if (!sprite.active) return;
+  addPlayableBlocker({ type, row, col }) {
+    const cfg = BLOCKERS[type];
+    if (!cfg) return;
 
-      if (piece.tailTimer) {
-        piece.tailTimer.remove(false);
-      }
+    const { x, y } = this.cellCenter(row, col);
+    const piece = this.board[row]?.[col];
 
-      piece.tailTimer = this.time.delayedCall(
-        Phaser.Math.Between(1100, 1900),
-        () => {
-          if (!sprite.active) return;
+    if (cfg.layer === 'solid' && piece) {
+      this.stopIdle(piece, false);
+      if (piece.sprite?.active) piece.sprite.destroy();
+      this.board[row][col] = null;
+    }
 
-          let nextFrame = Phaser.Utils.Array.GetRandom(tailFrames);
-          if (tailFrames.length > 1 && nextFrame === lastTailFrame) {
-            const alternatives = tailFrames.filter(frame => frame !== lastTailFrame);
-            nextFrame = Phaser.Utils.Array.GetRandom(alternatives);
-          }
-          lastTailFrame = nextFrame;
-
-          this.tweens.add({
-            targets: sprite,
-            alpha: 0.90,
-            duration: 180,
-            yoyo: true,
-            ease: 'Sine.easeInOut',
-            onYoyo: () => {
-              if (sprite.active) sprite.setFrame(nextFrame);
-            },
-            onComplete: () => {
-              if (!sprite.active) return;
-
-              piece.tailTimer = this.time.delayedCall(
-                Phaser.Math.Between(850, 1450),
-                () => {
-                  if (!sprite.active) return;
-
-                  this.tweens.add({
-                    targets: sprite,
-                    alpha: 0.91,
-                    duration: 170,
-                    yoyo: true,
-                    ease: 'Sine.easeInOut',
-                    onYoyo: () => {
-                      if (sprite.active) sprite.setFrame(baseFrame);
-                    },
-                    onComplete: () => {
-                      if (sprite.active) {
-                        sprite.setAlpha(0.96);
-                        scheduleBase();
-                      }
-                    }
-                  });
-                }
-              );
-            }
-          });
-        }
-      );
+    const sprite = this.add.sprite(x, y, cfg.atlas, cfg.frames[0]);
+    const blockerScale = {
+      seaweed: 0.178,
+      sand: 0.184,
+      rock: 0.176,
+      shell: 0.176,
+      net: 0.166,
+      ice: 0.184
     };
 
-    sprite.setFrame(baseFrame);
-    sprite.setAlpha(0.96);
-    scheduleBase();
+    sprite
+      .setScale(blockerScale[type] || 0.178)
+      .setDepth(18);
+
+    if (type === 'sand') sprite.setAlpha(0.84);
+    if (type === 'ice') sprite.setAlpha(0.88);
+    if (type === 'net') sprite.setAlpha(0.94);
+
+    if (type === 'seaweed') {
+      this.tweens.add({
+        targets: sprite,
+        angle: { from: -1.0, to: 1.0 },
+        scaleX: {
+          from: sprite.scaleX * 0.988,
+          to: sprite.scaleX * 1.012
+        },
+        duration: 2850,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    this.blockers[row][col] = {
+      type,
+      row,
+      col,
+      cfg,
+      sprite,
+      stage: 0,
+      alive: true
+    };
+  }
+
+  isSolidBlocker(row, col) {
+    const blocker = this.blockers?.[row]?.[col];
+    return Boolean(blocker?.alive && blocker.cfg.layer === 'solid');
+  }
+
+  cellBlocksSwap(row, col) {
+    const blocker = this.blockers?.[row]?.[col];
+    return Boolean(blocker?.alive && blocker.cfg.blocksSwap);
+  }
+
+  syncOverlayFreezeState() {
+    for (let row = 0; row < this.rows; row += 1) {
+      for (let col = 0; col < this.cols; col += 1) {
+        const piece = this.board[row]?.[col];
+        if (!piece) continue;
+
+        const blocker = this.blockers?.[row]?.[col];
+        const frozen = Boolean(
+          blocker?.alive && blocker.cfg.layer === 'overlay'
+        );
+
+        piece.frozenByBlocker = frozen;
+
+        if (frozen) {
+          this.stopIdle(piece, true);
+        }
+      }
+    }
+  }
+
+  damageBlockersFromMatches(matches) {
+    if (!this.blockersEnabled || !matches?.size) return;
+
+    const isMatched = (row, col) => matches.has(row + ':' + col);
+    const adjacentMatched = (row, col) =>
+      isMatched(row - 1, col) ||
+      isMatched(row + 1, col) ||
+      isMatched(row, col - 1) ||
+      isMatched(row, col + 1);
+
+    const hits = [];
+
+    for (let row = 0; row < this.rows; row += 1) {
+      for (let col = 0; col < this.cols; col += 1) {
+        const blocker = this.blockers?.[row]?.[col];
+        if (!blocker?.alive) continue;
+
+        let hit = false;
+
+        switch (blocker.cfg.damageRule) {
+          case 'adjacent_match':
+            hit = adjacentMatched(row, col);
+            break;
+          case 'match_on_cell':
+          case 'match_captured_fish':
+          case 'match_on_cell_or_hit':
+            hit = isMatched(row, col);
+            break;
+        }
+
+        if (hit) hits.push(blocker);
+      }
+    }
+
+    hits.forEach(blocker => this.damagePlayableBlocker(blocker));
+  }
+
+  damagePlayableBlocker(blocker) {
+    if (!blocker?.alive) return;
+
+    const { type, row, col, cfg, sprite } = blocker;
+    const { x, y } = this.cellCenter(row, col);
+    const finalHit = blocker.stage + 1 >= cfg.frames.length;
+
+    if (finalHit) {
+      playBlockerDestroyFX(this, type, x, y);
+    } else {
+      playBlockerDamageFX(this, type, x, y);
+    }
+
+    this.tweens.add({
+      targets: sprite,
+      scaleX: sprite.scaleX * 0.92,
+      scaleY: sprite.scaleY * 0.92,
+      duration: 85,
+      yoyo: true,
+      ease: 'Quad.easeOut'
+    });
+
+    blocker.stage += 1;
+
+    if (blocker.stage < cfg.frames.length) {
+      sprite.setFrame(cfg.frames[blocker.stage]);
+      return;
+    }
+
+    blocker.alive = false;
+    this.blockers[row][col] = null;
+
+    const piece = this.board[row]?.[col];
+    if (piece && cfg.layer === 'overlay') {
+      piece.frozenByBlocker = false;
+    }
+
+    this.tweens.add({
+      targets: sprite,
+      alpha: 0,
+      duration: 240,
+      delay: 45,
+      onComplete: () => {
+        if (sprite.active) sprite.destroy();
+      }
+    });
   }
 
   pointerToCell(x, y) {
@@ -515,6 +652,11 @@ export default class Match3MvpScene extends Phaser.Scene {
 
   async trySwap(r1, c1, r2, c2) {
     if (this.busy || this.moves <= 0) return;
+
+    if (this.cellBlocksSwap(r1, c1) || this.cellBlocksSwap(r2, c2)) {
+      this.statusText.setText('Препятствие блокирует перестановку');
+      return;
+    }
 
     this.busy = true;
     this.stopAllIdle();
@@ -765,9 +907,11 @@ export default class Match3MvpScene extends Phaser.Scene {
         this.statusText.setText('Каскад ×' + cascade);
       }
 
+      this.damageBlockersFromMatches(matches);
       await this.clearMatches(matches, cascade);
       await this.collapseBoard();
       await this.refillBoard();
+      this.syncOverlayFreezeState();
 
       matches = this.findMatches();
       cascade += 1;
@@ -815,11 +959,6 @@ export default class Match3MvpScene extends Phaser.Scene {
           cascade,
           () => {
             pieces.forEach(({ row, col, piece }) => {
-              if (piece.tailTimer) {
-                piece.tailTimer.remove(false);
-                piece.tailTimer = null;
-              }
-
               if (piece.sprite?.active) {
                 piece.sprite.destroy();
               }
@@ -904,11 +1043,6 @@ export default class Match3MvpScene extends Phaser.Scene {
       if (piece.idleTimer) {
         piece.idleTimer.remove(false);
         piece.idleTimer = null;
-      }
-
-      if (piece.tailTimer) {
-        piece.tailTimer.remove(false);
-        piece.tailTimer = null;
       }
 
       this.tweens.killTweensOf(sprite);
@@ -1189,41 +1323,54 @@ export default class Match3MvpScene extends Phaser.Scene {
     const tweens = [];
 
     for (let col = 0; col < this.cols; col += 1) {
-      let writeRow = this.rows - 1;
+      let segmentBottom = this.rows - 1;
 
-      for (let row = this.rows - 1; row >= 0; row -= 1) {
-        const piece = this.board[row][col];
-        if (!piece) continue;
+      for (let separator = this.rows - 1; separator >= -1; separator -= 1) {
+        const isSeparator =
+          separator === -1 || this.isSolidBlocker(separator, col);
 
-        if (row !== writeRow) {
-          this.board[writeRow][col] = piece;
-          this.board[row][col] = null;
+        if (!isSeparator) continue;
 
-          piece.row = writeRow;
-          piece.col = col;
+        const segmentTop = separator + 1;
+        let writeRow = segmentBottom;
 
-          const target = this.cellCenter(writeRow, col);
+        for (let row = segmentBottom; row >= segmentTop; row -= 1) {
+          const piece = this.board[row][col];
+          if (!piece) continue;
 
-          tweens.push(
-            new Promise(resolve => {
-              this.tweens.add({
-                targets: piece.sprite,
-                x: target.x,
-                y: target.y,
-                angle: 0,
-                duration: 250 + (writeRow - row) * 45,
-                ease: 'Sine.easeOut',
-                onComplete: resolve
-              });
-            })
-          );
+          if (row !== writeRow) {
+            this.board[writeRow][col] = piece;
+            this.board[row][col] = null;
+
+            piece.row = writeRow;
+            piece.col = col;
+            piece.frozenByBlocker = false;
+
+            const target = this.cellCenter(writeRow, col);
+
+            tweens.push(
+              new Promise(resolve => {
+                this.tweens.add({
+                  targets: piece.sprite,
+                  x: target.x,
+                  y: target.y,
+                  angle: 0,
+                  duration: 250 + (writeRow - row) * 45,
+                  ease: 'Sine.easeOut',
+                  onComplete: resolve
+                });
+              })
+            );
+          }
+
+          writeRow -= 1;
         }
 
-        writeRow -= 1;
-      }
+        for (let row = writeRow; row >= segmentTop; row -= 1) {
+          this.board[row][col] = null;
+        }
 
-      for (let row = writeRow; row >= 0; row -= 1) {
-        this.board[row][col] = null;
+        segmentBottom = separator - 1;
       }
     }
 
@@ -1234,56 +1381,67 @@ export default class Match3MvpScene extends Phaser.Scene {
     const tweens = [];
 
     for (let col = 0; col < this.cols; col += 1) {
-      const emptyRows = [];
+      let segmentBottom = this.rows - 1;
 
-      for (let row = 0; row < this.rows; row += 1) {
-        if (!this.board[row][col]) {
-          emptyRows.push(row);
+      for (let separator = this.rows - 1; separator >= -1; separator -= 1) {
+        const isSeparator =
+          separator === -1 || this.isSolidBlocker(separator, col);
+
+        if (!isSeparator) continue;
+
+        const segmentTop = separator + 1;
+        const emptyRows = [];
+
+        for (let row = segmentTop; row <= segmentBottom; row += 1) {
+          if (!this.board[row][col]) {
+            emptyRows.push(row);
+          }
         }
+
+        emptyRows.forEach((row, index) => {
+          const type = Phaser.Utils.Array.GetRandom(FISH_TYPES);
+          const { x, y } = this.cellCenter(row, col);
+          const segmentTopY = this.cellCenter(segmentTop, col).y;
+          const spawnY =
+            segmentTopY -
+            this.cellSize * (emptyRows.length - index + 0.8);
+
+          const sprite = this.add.sprite(
+            x,
+            spawnY,
+            'fish',
+            type + '_f01'
+          )
+            .setScale(BASE_SCALE)
+            .setDepth(10)
+            .setFlipX(Phaser.Math.Between(0, 1) === 1);
+
+          const piece = {
+            type,
+            sprite,
+            row,
+            col,
+            idleTimer: null,
+            frozenByBlocker: false
+          };
+
+          this.board[row][col] = piece;
+
+          tweens.push(
+            new Promise(resolve => {
+              this.tweens.add({
+                targets: sprite,
+                y,
+                duration: 320 + index * 55,
+                ease: 'Sine.easeOut',
+                onComplete: resolve
+              });
+            })
+          );
+        });
+
+        segmentBottom = separator - 1;
       }
-
-      emptyRows.forEach((row, index) => {
-        const type = Phaser.Utils.Array.GetRandom(FISH_TYPES);
-        const { x, y } = this.cellCenter(row, col);
-        const spawnY =
-          this.boardY -
-          this.cellSize * (emptyRows.length - index + 0.8);
-
-        const sprite = this.add.sprite(
-          x,
-          spawnY,
-          'fish',
-          type + '_f01'
-        )
-          .setScale(BASE_SCALE)
-          .setDepth(10)
-          .setFlipX(Phaser.Math.Between(0, 1) === 1);
-
-        const piece = {
-          type,
-          sprite,
-          row,
-          col,
-          idleTimer: null,
-          tailTimer: null,
-          tailPose: 0
-        };
-
-        this.board[row][col] = piece;
-        this.startTailMicroAnimation(piece);
-
-        tweens.push(
-          new Promise(resolve => {
-            this.tweens.add({
-              targets: sprite,
-              y,
-              duration: 320 + index * 55,
-              ease: 'Sine.easeOut',
-              onComplete: resolve
-            });
-          })
-        );
-      });
     }
 
     return Promise.all(tweens);
@@ -1304,7 +1462,7 @@ export default class Match3MvpScene extends Phaser.Scene {
     for (let row = 0; row < this.rows; row += 1) {
       for (let col = 0; col < this.cols; col += 1) {
         const piece = this.board[row][col];
-        if (piece) {
+        if (piece && !piece.frozenByBlocker) {
           this.startIdle(piece);
         }
       }
