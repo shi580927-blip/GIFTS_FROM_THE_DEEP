@@ -375,40 +375,86 @@ export default class Match3MvpScene extends Phaser.Scene {
   }
 
   startTailMicroAnimation(piece) {
-    if (!MICRO_TAIL_FISH.has(piece.type)) return;
+    // Clownfish has no frame animation; it only shares the gentle water sway.
+    if (piece.type !== GOLD_FISH) return;
     if (!piece?.sprite?.active) return;
 
     const sprite = piece.sprite;
-    const baseFrame = piece.type + '_f01';
-    const tinyTailFrame = piece.type + '_f02';
+    const baseFrame = GOLD_FISH + '_f01';
+    const tailFrames = [
+      GOLD_FISH + '_f02',
+      GOLD_FISH + '_f03',
+      GOLD_FISH + '_f04',
+      GOLD_FISH + '_f05',
+      GOLD_FISH + '_f06',
+      GOLD_FISH + '_f07'
+    ];
 
-    const scheduleNext = (delay = Phaser.Math.Between(650, 1050)) => {
+    let lastTailFrame = null;
+
+    const scheduleBase = () => {
       if (!sprite.active) return;
 
       if (piece.tailTimer) {
         piece.tailTimer.remove(false);
       }
 
-      piece.tailTimer = this.time.delayedCall(delay, () => {
-        if (!sprite.active) return;
+      piece.tailTimer = this.time.delayedCall(
+        Phaser.Math.Between(1100, 1900),
+        () => {
+          if (!sprite.active) return;
 
-        if (piece.tailPose === 0) {
-          sprite.setFrame(tinyTailFrame);
-          piece.tailPose = 1;
+          let nextFrame = Phaser.Utils.Array.GetRandom(tailFrames);
+          if (tailFrames.length > 1 && nextFrame === lastTailFrame) {
+            const alternatives = tailFrames.filter(frame => frame !== lastTailFrame);
+            nextFrame = Phaser.Utils.Array.GetRandom(alternatives);
+          }
+          lastTailFrame = nextFrame;
 
-          scheduleNext(Phaser.Math.Between(520, 820));
-        } else {
-          sprite.setFrame(baseFrame);
-          piece.tailPose = 0;
+          this.tweens.add({
+            targets: sprite,
+            alpha: 0.90,
+            duration: 180,
+            yoyo: true,
+            ease: 'Sine.easeInOut',
+            onYoyo: () => {
+              if (sprite.active) sprite.setFrame(nextFrame);
+            },
+            onComplete: () => {
+              if (!sprite.active) return;
 
-          scheduleNext(Phaser.Math.Between(520, 880));
+              piece.tailTimer = this.time.delayedCall(
+                Phaser.Math.Between(850, 1450),
+                () => {
+                  if (!sprite.active) return;
+
+                  this.tweens.add({
+                    targets: sprite,
+                    alpha: 0.91,
+                    duration: 170,
+                    yoyo: true,
+                    ease: 'Sine.easeInOut',
+                    onYoyo: () => {
+                      if (sprite.active) sprite.setFrame(baseFrame);
+                    },
+                    onComplete: () => {
+                      if (sprite.active) {
+                        sprite.setAlpha(0.96);
+                        scheduleBase();
+                      }
+                    }
+                  });
+                }
+              );
+            }
+          });
         }
-      });
+      );
     };
 
     sprite.setFrame(baseFrame);
-    piece.tailPose = 0;
-    scheduleNext(Phaser.Math.Between(300, 1200));
+    sprite.setAlpha(0.96);
+    scheduleBase();
   }
 
   pointerToCell(x, y) {
