@@ -43,6 +43,9 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.createHud();
     this.createBoard();
 
+    this.activeDive = false;
+    this.scheduleAmbientDive();
+
     this.input.on('pointerdown', pointer => {
       if (this.busy) return;
       const cell = this.pointerToCell(pointer.x, pointer.y);
@@ -247,7 +250,11 @@ export default class Match3MvpScene extends Phaser.Scene {
       type,
       sprite,
       row,
-      col
+      col,
+      visualOffsetX: 0,
+      visualOffsetY: 0,
+      idleTimer: null,
+      isDiving: false
     };
 
     this.startIdle(piece);
@@ -267,9 +274,20 @@ export default class Match3MvpScene extends Phaser.Scene {
 
   startIdle(piece) {
     const sprite = piece.sprite;
+    if (!sprite?.active || piece.isDiving) return;
+
+    if (piece.idleTimer) {
+      piece.idleTimer.remove(false);
+      piece.idleTimer = null;
+    }
+
     this.tweens.killTweensOf(sprite);
-    const { x, y } = this.cellCenter(piece.row, piece.col);
-    sprite.setPosition(x, y);
+
+    const center = this.cellCenter(piece.row, piece.col);
+    const baseX = center.x + (piece.visualOffsetX || 0);
+    const baseY = center.y + (piece.visualOffsetY || 0);
+
+    sprite.setPosition(baseX, baseY);
     sprite.setAngle(0);
 
     const frameAnimated = FRAME_ANIMATED_FISH.has(piece.type);
@@ -283,24 +301,30 @@ export default class Match3MvpScene extends Phaser.Scene {
     const maxDuration = frameAnimated ? 5600 : 4400;
 
     const cycle = () => {
-      if (!sprite.active || this.busy) return;
+      if (!sprite.active || this.busy || piece.isDiving) return;
       const flip = sprite.flipX ? -1 : 1;
 
       this.tweens.add({
         targets: sprite,
-        y: y + Phaser.Math.FloatBetween(-yMax, yMax),
+        y: baseY + Phaser.Math.FloatBetween(-yMax, yMax),
         angle: flip * Phaser.Math.FloatBetween(-angleMax, angleMax),
         duration: Phaser.Math.Between(minDuration, maxDuration),
         yoyo: true,
         ease: 'Sine.easeInOut',
         onComplete: () => {
-          if (!sprite.active || this.busy) return;
-          this.time.delayedCall(Phaser.Math.Between(120, 620), cycle);
+          if (!sprite.active || this.busy || piece.isDiving) return;
+          piece.idleTimer = this.time.delayedCall(
+            Phaser.Math.Between(120, 620),
+            cycle
+          );
         }
       });
     };
 
-    this.time.delayedCall(Phaser.Math.Between(0, 900), cycle);
+    piece.idleTimer = this.time.delayedCall(
+      Phaser.Math.Between(0, 900),
+      cycle
+    );
   }
 
   startFrameAnimation(piece) {
@@ -349,12 +373,151 @@ export default class Match3MvpScene extends Phaser.Scene {
     );
   }
 
-  stopIdle(piece) {
+  stopIdle(piece, resetOffset = true) {
     if (!piece?.sprite) return;
+
+    if (piece.idleTimer) {
+      piece.idleTimer.remove(false);
+      piece.idleTimer = null;
+    }
+
     this.tweens.killTweensOf(piece.sprite);
     piece.sprite.setAngle(0);
+
+    if (resetOffset) {
+      piece.visualOffsetX = 0;
+      piece.visualOffsetY = 0;
+    }
+
     const { x, y } = this.cellCenter(piece.row, piece.col);
-    piece.sprite.setPosition(x, y);
+    piece.sprite.setPosition(
+      x + (piece.visualOffsetX || 0),
+      y + (piece.visualOffsetY || 0)
+    );
+  }
+
+  scheduleAmbientDive() {
+    this.time.delayedCall(
+      Phaser.Math.Between(2800, 5200),
+      () => {
+        if (!this.busy && !this.activeDive) {
+          const candidates = [];
+
+          for (let row = 0; row < this.rows; row += 1) {
+            for (let col = 0; col < this.cols; col += 1) {
+              const piece = this.board[row]?.[col];
+              if (!piece?.sprite?.active || piece.isDiving) continue;
+
+              if (
+                this.selected &&
+                this.selected.row === row &&
+                this.selected.col === col
+              ) continue;
+
+              candidates.push(piece);
+            }
+          }
+
+          if (candidates.length > 0) {
+            this.performDive(Phaser.Utils.Array.GetRandom(candidates));
+          }
+        }
+
+        this.scheduleAmbientDive();
+      }
+    );
+  }
+
+  performDive(piece) {
+    if (!piece?.sprite?.active || this.busy || this.activeDive) return;
+
+    this.activeDive = true;
+    piece.isDiving = true;
+
+    const sprite = piece.sprite;
+    this.stopIdle(piece, true);
+
+    const center = this.cellCenter(piece.row, piece.col);
+    const targetX = Phaser.Math.Between(-10, 10);
+    const targetY = Phaser.Math.Between(-7, 7);
+    const baseScale = 0.19;
+    const direction = sprite.flipX ? -1 : 1;
+
+    this.playDiveBubbles(center.x, center.y + 5);
+
+    this.tweens.add({
+      targets: sprite,
+      x: center.x + direction * 8,
+      y: center.y + 10,
+      scaleX: baseScale * 0.82,
+      scaleY: baseScale * 0.82,
+      alpha: 0.42,
+      angle: direction * 4,
+      duration: 190,
+      ease: 'Sine.easeIn',
+      onComplete: () => {
+        if (!sprite.active) {
+          this.activeDive = false;
+          piece.isDiving = false;
+          return;
+        }
+
+        sprite.setPosition(
+          center.x + targetX,
+          center.y + targetY + 8
+        );
+        sprite.setAlpha(0.28);
+        sprite.setScale(baseScale * 0.78);
+        sprite.setAngle(-direction * 3);
+
+        this.playDiveBubbles(
+          center.x + targetX,
+          center.y + targetY + 4
+        );
+
+        this.tweens.add({
+          targets: sprite,
+          y: center.y + targetY,
+          scaleX: baseScale,
+          scaleY: baseScale,
+          alpha: 0.96,
+          angle: 0,
+          duration: 290,
+          ease: 'Back.easeOut',
+          onComplete: () => {
+            piece.visualOffsetX = targetX;
+            piece.visualOffsetY = targetY;
+            piece.isDiving = false;
+            this.activeDive = false;
+            this.startIdle(piece);
+          }
+        });
+      }
+    });
+  }
+
+  playDiveBubbles(x, y) {
+    for (let i = 0; i < 3; i += 1) {
+      const bubble = this.add.circle(
+        x + Phaser.Math.Between(-7, 7),
+        y + Phaser.Math.Between(-4, 5),
+        Phaser.Math.FloatBetween(1.5, 3.2),
+        0xdffaff,
+        0.14
+      )
+        .setStrokeStyle(1, 0xdffaff, 0.5)
+        .setDepth(28);
+
+      this.tweens.add({
+        targets: bubble,
+        x: bubble.x + Phaser.Math.Between(-7, 7),
+        y: bubble.y - Phaser.Math.Between(14, 28),
+        alpha: 0,
+        duration: Phaser.Math.Between(300, 460),
+        ease: 'Sine.easeOut',
+        onComplete: () => bubble.destroy()
+      });
+    }
   }
 
   pointerToCell(x, y) {
@@ -673,7 +836,16 @@ export default class Match3MvpScene extends Phaser.Scene {
           .setDepth(10)
           .setFlipX(Phaser.Math.Between(0, 1) === 1);
 
-        const piece = { type, sprite, row, col };
+        const piece = {
+          type,
+          sprite,
+          row,
+          col,
+          visualOffsetX: 0,
+          visualOffsetY: 0,
+          idleTimer: null,
+          isDiving: false
+        };
         this.board[row][col] = piece;
         this.startFrameAnimation(piece);
 
