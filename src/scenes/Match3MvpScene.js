@@ -106,32 +106,161 @@ export default class Match3MvpScene extends Phaser.Scene {
   }
 
   createBackdrop() {
-    const g = this.add.graphics();
-    g.fillStyle(0x063c52, 1);
-    g.fillRoundedRect(110, 55, 650, 610, 28);
-    g.lineStyle(2, 0x85e7ff, 0.22);
-    g.strokeRoundedRect(110, 55, 650, 610, 28);
+    // Aquarium context v1: lightweight procedural underwater scene.
+    // Purpose: judge fish/blocker readability against the real blue-dominant mood
+    // without adding a heavy raster background yet.
+    const bg = this.add.graphics().setDepth(-20);
 
-    for (let i = 0; i < 14; i += 1) {
-      const bubble = this.add.circle(
-        Phaser.Math.Between(80, 920),
-        Phaser.Math.Between(80, 690),
-        Phaser.Math.Between(2, 6),
-        0xc9f7ff,
-        0.07
-      ).setStrokeStyle(1, 0xc9f7ff, 0.18);
+    const bands = [
+      { y: 0, h: 120, color: 0x0d7f9c, alpha: 1 },
+      { y: 120, h: 150, color: 0x096b88, alpha: 1 },
+      { y: 270, h: 180, color: 0x07546f, alpha: 1 },
+      { y: 450, h: 180, color: 0x063f59, alpha: 1 },
+      { y: 630, h: 90, color: 0x052f47, alpha: 1 }
+    ];
+
+    bands.forEach(band => {
+      bg.fillStyle(band.color, band.alpha);
+      bg.fillRect(0, band.y, 1000, band.h);
+    });
+
+    // Soft water glow near the surface.
+    for (let i = 0; i < 7; i += 1) {
+      const x = 80 + i * 150 + Phaser.Math.Between(-30, 30);
+      const ray = this.add.graphics().setDepth(-18).setAlpha(0.08);
+      ray.fillStyle(0xbef7ff, 1);
+      ray.fillTriangle(
+        x - 24, -10,
+        x + 28, -10,
+        x + Phaser.Math.Between(35, 95), 410
+      );
 
       this.tweens.add({
-        targets: bubble,
-        y: bubble.y - Phaser.Math.Between(30, 90),
-        alpha: { from: 0.03, to: 0.16 },
-        duration: Phaser.Math.Between(3200, 6200),
+        targets: ray,
+        alpha: { from: 0.035, to: 0.11 },
+        angle: { from: -1.2, to: 1.2 },
+        duration: Phaser.Math.Between(5200, 8200),
+        yoyo: true,
+        repeat: -1,
+        delay: Phaser.Math.Between(0, 2200),
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    // Surface caustic strokes.
+    for (let i = 0; i < 9; i += 1) {
+      const stroke = this.add.ellipse(
+        70 + i * 115 + Phaser.Math.Between(-18, 18),
+        Phaser.Math.Between(20, 92),
+        Phaser.Math.Between(70, 145),
+        Phaser.Math.Between(5, 10),
+        0xd9fbff,
+        Phaser.Math.FloatBetween(0.035, 0.08)
+      ).setDepth(-17);
+
+      this.tweens.add({
+        targets: stroke,
+        x: stroke.x + Phaser.Math.Between(-18, 22),
+        scaleX: { from: 0.92, to: 1.12 },
+        alpha: { from: 0.025, to: 0.09 },
+        duration: Phaser.Math.Between(3600, 6200),
         yoyo: true,
         repeat: -1,
         delay: Phaser.Math.Between(0, 1800),
         ease: 'Sine.easeInOut'
       });
     }
+
+    // Distant aquarium plants behind the board.
+    const plantXs = [28, 72, 105, 690, 725, 954, 982];
+    plantXs.forEach((x, index) => {
+      const plant = this.add.graphics().setDepth(-12);
+      const baseY = 720;
+      const height = Phaser.Math.Between(125, 255);
+      const lean = index % 2 === 0 ? -1 : 1;
+
+      plant.lineStyle(
+        Phaser.Math.Between(7, 12),
+        index % 3 === 0 ? 0x0f6b63 : 0x0a756d,
+        0.48
+      );
+      plant.beginPath();
+      plant.moveTo(x, baseY);
+      plant.bezierCurveTo(
+        x + 14 * lean,
+        baseY - height * 0.32,
+        x - 18 * lean,
+        baseY - height * 0.65,
+        x + 8 * lean,
+        baseY - height
+      );
+      plant.strokePath();
+
+      this.tweens.add({
+        targets: plant,
+        angle: { from: -0.7 * lean, to: 0.9 * lean },
+        duration: Phaser.Math.Between(4100, 6800),
+        yoyo: true,
+        repeat: -1,
+        delay: Phaser.Math.Between(0, 1500),
+        ease: 'Sine.easeInOut'
+      });
+    });
+
+    // Sandy aquarium floor with a soft uneven silhouette.
+    const floor = this.add.graphics().setDepth(-11);
+    floor.fillStyle(0x9f9a72, 0.34);
+    floor.fillEllipse(500, 724, 1120, 155);
+    floor.fillStyle(0xd2c99d, 0.10);
+    floor.fillEllipse(410, 704, 760, 54);
+
+    // A few distant rocks/coral silhouettes to make the scene read as an aquarium.
+    const decor = this.add.graphics().setDepth(-10);
+    decor.fillStyle(0x163f49, 0.34);
+    decor.fillEllipse(38, 685, 110, 70);
+    decor.fillEllipse(930, 690, 170, 80);
+    decor.fillStyle(0x145b5c, 0.28);
+    decor.fillCircle(890, 666, 28);
+    decor.fillCircle(920, 650, 19);
+    decor.fillCircle(945, 671, 24);
+
+    // Distant bubbles: intentionally subtle so gameplay bubbles remain distinct.
+    for (let i = 0; i < 22; i += 1) {
+      const bubble = this.add.circle(
+        Phaser.Math.Between(25, 980),
+        Phaser.Math.Between(80, 690),
+        Phaser.Math.Between(1, 4),
+        0xe3fbff,
+        Phaser.Math.FloatBetween(0.025, 0.07)
+      )
+        .setStrokeStyle(1, 0xd8f8ff, Phaser.Math.FloatBetween(0.06, 0.14))
+        .setDepth(-8);
+
+      const baseY = bubble.y;
+      this.tweens.add({
+        targets: bubble,
+        y: baseY - Phaser.Math.Between(45, 130),
+        x: bubble.x + Phaser.Math.Between(-14, 14),
+        alpha: { from: 0.02, to: 0.10 },
+        duration: Phaser.Math.Between(4500, 8500),
+        yoyo: true,
+        repeat: -1,
+        delay: Phaser.Math.Between(0, 3000),
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    // Gameplay glass/panel: transparent enough to retain aquarium color context.
+    const glass = this.add.graphics().setDepth(0);
+    glass.fillStyle(0x052f43, 0.24);
+    glass.fillRoundedRect(110, 55, 650, 610, 28);
+    glass.lineStyle(2, 0xa8efff, 0.20);
+    glass.strokeRoundedRect(110, 55, 650, 610, 28);
+
+    // Gentle outer glow around the play area.
+    const glow = this.add.graphics().setDepth(-1);
+    glow.lineStyle(7, 0x9cecff, 0.035);
+    glow.strokeRoundedRect(106, 51, 658, 618, 31);
   }
 
   createHud() {
@@ -142,7 +271,7 @@ export default class Match3MvpScene extends Phaser.Scene {
       color: '#e6fbff'
     }).setOrigin(0.5);
 
-    this.add.text(805, 124, 'PLAYABLE · READABILITY v3', {
+    this.add.text(805, 124, 'PLAYABLE · AQUARIUM CONTEXT v1', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '12px',
       color: '#87d8ea'
@@ -209,7 +338,7 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.add.text(
       805,
       592,
-      'Тест: читаемость рыб под blockers\nвуалехвост / клоун разведены визуально',
+      'Тест: aquarium context + readability\nоценка рыб и blockers на синем фоне',
       {
         fontFamily: 'Arial, sans-serif',
         fontSize: '12px',
