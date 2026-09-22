@@ -106,40 +106,67 @@ export default class Match3MvpScene extends Phaser.Scene {
   }
 
   createBackdrop() {
-    // Aquarium context v1: lightweight procedural underwater scene.
-    // Purpose: judge fish/blocker readability against the real blue-dominant mood
-    // without adding a heavy raster background yet.
-    const bg = this.add.graphics().setDepth(-20);
+    // Aquarium context SAFE v1: intentionally simple and based only on
+    // primitives already used by the known-working playable scene.
+    const bg = this.add.graphics();
 
-    const bands = [
-      { y: 0, h: 120, color: 0x0d7f9c, alpha: 1 },
-      { y: 120, h: 150, color: 0x096b88, alpha: 1 },
-      { y: 270, h: 180, color: 0x07546f, alpha: 1 },
-      { y: 450, h: 180, color: 0x063f59, alpha: 1 },
-      { y: 630, h: 90, color: 0x052f47, alpha: 1 }
-    ];
+    bg.fillStyle(0x0b7693, 1);
+    bg.fillRect(0, 0, 1000, 150);
+    bg.fillStyle(0x08627f, 1);
+    bg.fillRect(0, 150, 1000, 180);
+    bg.fillStyle(0x064d69, 1);
+    bg.fillRect(0, 330, 1000, 200);
+    bg.fillStyle(0x05394f, 1);
+    bg.fillRect(0, 530, 1000, 190);
 
-    bands.forEach(band => {
-      bg.fillStyle(band.color, band.alpha);
-      bg.fillRect(0, band.y, 1000, band.h);
-    });
+    // Soft sandy bottom.
+    bg.fillStyle(0xb7aa7a, 0.24);
+    bg.fillRect(0, 675, 1000, 45);
 
-    // Soft water glow near the surface.
+    // Play area glass, kept transparent so the blue environment is visible.
+    bg.fillStyle(0x063c52, 0.40);
+    bg.fillRoundedRect(110, 55, 650, 610, 28);
+    bg.lineStyle(2, 0x85e7ff, 0.24);
+    bg.strokeRoundedRect(110, 55, 650, 610, 28);
+
+    // Surface light spots.
     for (let i = 0; i < 7; i += 1) {
-      const x = 80 + i * 150 + Phaser.Math.Between(-30, 30);
-      const ray = this.add.graphics().setDepth(-18).setAlpha(0.08);
-      ray.fillStyle(0xbef7ff, 1);
-      ray.fillTriangle(
-        x - 24, -10,
-        x + 28, -10,
-        x + Phaser.Math.Between(35, 95), 410
+      const light = this.add.circle(
+        90 + i * 145,
+        Phaser.Math.Between(22, 72),
+        Phaser.Math.Between(18, 34),
+        0xd9fbff,
+        0.045
       );
 
       this.tweens.add({
-        targets: ray,
-        alpha: { from: 0.035, to: 0.11 },
-        angle: { from: -1.2, to: 1.2 },
-        duration: Phaser.Math.Between(5200, 8200),
+        targets: light,
+        x: light.x + Phaser.Math.Between(-16, 16),
+        alpha: { from: 0.025, to: 0.075 },
+        duration: Phaser.Math.Between(3600, 6200),
+        yoyo: true,
+        repeat: -1,
+        delay: Phaser.Math.Between(0, 1200),
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    // Distant bubbles.
+    for (let i = 0; i < 18; i += 1) {
+      const bubble = this.add.circle(
+        Phaser.Math.Between(30, 970),
+        Phaser.Math.Between(95, 665),
+        Phaser.Math.Between(2, 5),
+        0xc9f7ff,
+        0.055
+      ).setStrokeStyle(1, 0xc9f7ff, 0.14);
+
+      this.tweens.add({
+        targets: bubble,
+        y: bubble.y - Phaser.Math.Between(35, 105),
+        x: bubble.x + Phaser.Math.Between(-10, 10),
+        alpha: { from: 0.025, to: 0.11 },
+        duration: Phaser.Math.Between(4200, 7600),
         yoyo: true,
         repeat: -1,
         delay: Phaser.Math.Between(0, 2200),
@@ -147,116 +174,32 @@ export default class Match3MvpScene extends Phaser.Scene {
       });
     }
 
-    // Surface caustic strokes.
-    for (let i = 0; i < 9; i += 1) {
-      const stroke = this.add.ellipse(
-        70 + i * 115 + Phaser.Math.Between(-18, 18),
-        Phaser.Math.Between(20, 92),
-        Phaser.Math.Between(70, 145),
-        Phaser.Math.Between(5, 10),
-        0xd9fbff,
-        Phaser.Math.FloatBetween(0.035, 0.08)
-      ).setDepth(-17);
+    // Simple distant seaweed silhouettes at the edges.
+    const weeds = [
+      { x: 24, h: 135 }, { x: 52, h: 190 }, { x: 82, h: 115 },
+      { x: 930, h: 160 }, { x: 962, h: 205 }
+    ];
+
+    weeds.forEach((weed, index) => {
+      const stem = this.add.rectangle(
+        weed.x,
+        710 - weed.h / 2,
+        8,
+        weed.h,
+        index % 2 === 0 ? 0x0d6c67 : 0x0b5c5a,
+        0.34
+      ).setOrigin(0.5, 0.5);
 
       this.tweens.add({
-        targets: stroke,
-        x: stroke.x + Phaser.Math.Between(-18, 22),
-        scaleX: { from: 0.92, to: 1.12 },
-        alpha: { from: 0.025, to: 0.09 },
-        duration: Phaser.Math.Between(3600, 6200),
+        targets: stem,
+        angle: { from: -1.5, to: 1.5 },
+        duration: Phaser.Math.Between(4200, 6500),
         yoyo: true,
         repeat: -1,
-        delay: Phaser.Math.Between(0, 1800),
-        ease: 'Sine.easeInOut'
-      });
-    }
-
-    // Distant aquarium plants behind the board.
-    const plantXs = [28, 72, 105, 690, 725, 954, 982];
-    plantXs.forEach((x, index) => {
-      const plant = this.add.graphics().setDepth(-12);
-      const baseY = 720;
-      const height = Phaser.Math.Between(125, 255);
-      const lean = index % 2 === 0 ? -1 : 1;
-
-      plant.lineStyle(
-        Phaser.Math.Between(7, 12),
-        index % 3 === 0 ? 0x0f6b63 : 0x0a756d,
-        0.48
-      );
-      const p1 = { x, y: baseY };
-      const p2 = { x: x + 10 * lean, y: baseY - height * 0.30 };
-      const p3 = { x: x - 7 * lean, y: baseY - height * 0.62 };
-      const p4 = { x: x + 8 * lean, y: baseY - height };
-      plant.lineBetween(p1.x, p1.y, p2.x, p2.y);
-      plant.lineBetween(p2.x, p2.y, p3.x, p3.y);
-      plant.lineBetween(p3.x, p3.y, p4.x, p4.y);
-
-      this.tweens.add({
-        targets: plant,
-        angle: { from: -0.7 * lean, to: 0.9 * lean },
-        duration: Phaser.Math.Between(4100, 6800),
-        yoyo: true,
-        repeat: -1,
-        delay: Phaser.Math.Between(0, 1500),
+        delay: Phaser.Math.Between(0, 1200),
         ease: 'Sine.easeInOut'
       });
     });
-
-    // Sandy aquarium floor with a soft uneven silhouette.
-    const floor = this.add.graphics().setDepth(-11);
-    floor.fillStyle(0x9f9a72, 0.34);
-    floor.fillEllipse(500, 724, 1120, 155);
-    floor.fillStyle(0xd2c99d, 0.10);
-    floor.fillEllipse(410, 704, 760, 54);
-
-    // A few distant rocks/coral silhouettes to make the scene read as an aquarium.
-    const decor = this.add.graphics().setDepth(-10);
-    decor.fillStyle(0x163f49, 0.34);
-    decor.fillEllipse(38, 685, 110, 70);
-    decor.fillEllipse(930, 690, 170, 80);
-    decor.fillStyle(0x145b5c, 0.28);
-    decor.fillCircle(890, 666, 28);
-    decor.fillCircle(920, 650, 19);
-    decor.fillCircle(945, 671, 24);
-
-    // Distant bubbles: intentionally subtle so gameplay bubbles remain distinct.
-    for (let i = 0; i < 22; i += 1) {
-      const bubble = this.add.circle(
-        Phaser.Math.Between(25, 980),
-        Phaser.Math.Between(80, 690),
-        Phaser.Math.Between(1, 4),
-        0xe3fbff,
-        Phaser.Math.FloatBetween(0.025, 0.07)
-      )
-        .setStrokeStyle(1, 0xd8f8ff, Phaser.Math.FloatBetween(0.06, 0.14))
-        .setDepth(-8);
-
-      const baseY = bubble.y;
-      this.tweens.add({
-        targets: bubble,
-        y: baseY - Phaser.Math.Between(45, 130),
-        x: bubble.x + Phaser.Math.Between(-14, 14),
-        alpha: { from: 0.02, to: 0.10 },
-        duration: Phaser.Math.Between(4500, 8500),
-        yoyo: true,
-        repeat: -1,
-        delay: Phaser.Math.Between(0, 3000),
-        ease: 'Sine.easeInOut'
-      });
-    }
-
-    // Gameplay glass/panel: transparent enough to retain aquarium color context.
-    const glass = this.add.graphics().setDepth(0);
-    glass.fillStyle(0x052f43, 0.24);
-    glass.fillRoundedRect(110, 55, 650, 610, 28);
-    glass.lineStyle(2, 0xa8efff, 0.20);
-    glass.strokeRoundedRect(110, 55, 650, 610, 28);
-
-    // Gentle outer glow around the play area.
-    const glow = this.add.graphics().setDepth(-1);
-    glow.lineStyle(7, 0x9cecff, 0.035);
-    glow.strokeRoundedRect(106, 51, 658, 618, 31);
   }
 
   createHud() {
@@ -267,7 +210,7 @@ export default class Match3MvpScene extends Phaser.Scene {
       color: '#e6fbff'
     }).setOrigin(0.5);
 
-    this.add.text(805, 124, 'PLAYABLE · AQUARIUM CONTEXT v1', {
+    this.add.text(805, 124, 'PLAYABLE · AQUARIUM SAFE v1', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '12px',
       color: '#87d8ea'
@@ -334,7 +277,7 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.add.text(
       805,
       592,
-      'Тест: aquarium context + readability\nоценка рыб и blockers на синем фоне',
+      'Тест: aquarium safe + blockers\nцвет рыб пока без tint-коррекции',
       {
         fontFamily: 'Arial, sans-serif',
         fontSize: '12px',
@@ -430,8 +373,6 @@ export default class Match3MvpScene extends Phaser.Scene {
       frozenByBlocker: false
     };
 
-    this.applyFishReadability(piece);
-
     if (spawnY !== null && spawnY !== y) {
       this.tweens.add({
         targets: sprite,
@@ -449,25 +390,6 @@ export default class Match3MvpScene extends Phaser.Scene {
     return piece;
   }
 
-  applyFishReadability(piece) {
-    const sprite = piece?.sprite;
-    if (!sprite?.active) return;
-
-    sprite.clearTint();
-
-    // TEST: keep clownfish naturally orange-white, push veiltail toward a lighter golden read.
-    // Phaser tint is intentionally subtle so we preserve the original painted details.
-    if (piece.type === 'fish_01_goldfish') {
-      sprite.setTint(0xfff0bd);
-    }
-
-    // Slightly cooler/darker coral on clownfish increases separation from veiltail
-    // without changing its recognizable white/black pattern.
-    if (piece.type === 'fish_06_clownfish') {
-      sprite.setTint(0xffc7bd);
-    }
-  }
-
   startIdle(piece) {
     const sprite = piece?.sprite;
     if (!sprite?.active) return;
@@ -480,8 +402,6 @@ export default class Match3MvpScene extends Phaser.Scene {
       sprite.setAngle(0);
       sprite.setScale(BASE_SCALE);
       sprite.setAlpha(1);
-      sprite.setDepth(17);
-      this.applyFishReadability(piece);
       return;
     }
 
@@ -490,8 +410,6 @@ export default class Match3MvpScene extends Phaser.Scene {
     sprite.setAngle(0);
     sprite.setAlpha(0.96);
     sprite.setScale(BASE_SCALE);
-    sprite.setDepth(10);
-    this.applyFishReadability(piece);
 
     const yMax = Phaser.Math.FloatBetween(1.8, 3.2);
     const angleMax = Phaser.Math.FloatBetween(0.45, 0.90);
@@ -560,9 +478,7 @@ export default class Match3MvpScene extends Phaser.Scene {
       piece.sprite.setPosition(x, y);
       piece.sprite.setAngle(0);
       piece.sprite.setScale(BASE_SCALE);
-      piece.sprite.setAlpha(piece.frozenByBlocker ? 1 : 0.96);
-      piece.sprite.setDepth(piece.frozenByBlocker ? 17 : 10);
-      this.applyFishReadability(piece);
+      piece.sprite.setAlpha(0.96);
     }
   }
 
@@ -611,11 +527,10 @@ export default class Match3MvpScene extends Phaser.Scene {
       .setScale(blockerScale[type] || 0.178)
       .setDepth(18);
 
-    // Overlay blockers must communicate capture without hiding the fish identity.
-    if (type === 'seaweed') sprite.setAlpha(0.74);
-    if (type === 'sand') sprite.setAlpha(0.60);
-    if (type === 'ice') sprite.setAlpha(0.64);
-    if (type === 'net') sprite.setAlpha(0.70);
+    if (type === 'seaweed') sprite.setAlpha(0.76);
+    if (type === 'sand') sprite.setAlpha(0.62);
+    if (type === 'ice') sprite.setAlpha(0.66);
+    if (type === 'net') sprite.setAlpha(0.72);
 
     if (type === 'seaweed') {
       this.tweens.add({
@@ -668,9 +583,6 @@ export default class Match3MvpScene extends Phaser.Scene {
 
         if (frozen) {
           this.stopIdle(piece, true);
-        } else {
-          piece.sprite?.setDepth(10);
-          this.applyFishReadability(piece);
         }
       }
     }
@@ -748,8 +660,6 @@ export default class Match3MvpScene extends Phaser.Scene {
     const piece = this.board[row]?.[col];
     if (piece && cfg.layer === 'overlay') {
       piece.frozenByBlocker = false;
-      piece.sprite?.setDepth(10);
-      this.applyFishReadability(piece);
     }
 
     this.tweens.add({
@@ -1767,7 +1677,6 @@ export default class Match3MvpScene extends Phaser.Scene {
           frozenByBlocker: false
         };
 
-        this.applyFishReadability(piece);
         this.board[row][col] = piece;
 
         tweens.push(
