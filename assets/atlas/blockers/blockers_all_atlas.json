@@ -302,6 +302,8 @@
     }
   },
   "meta": {
+    "app": "OpenAI asset assembly",
+    "version": "2.0",
     "image": "blockers_all_atlas.png",
     "format": "RGBA8888",
     "size": {
