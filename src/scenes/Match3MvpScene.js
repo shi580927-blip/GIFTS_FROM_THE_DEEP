@@ -142,7 +142,7 @@ export default class Match3MvpScene extends Phaser.Scene {
       color: '#e6fbff'
     }).setOrigin(0.5);
 
-    this.add.text(805, 124, 'PLAYABLE · BLOCKERS + HINT v2', {
+    this.add.text(805, 124, 'PLAYABLE · READABILITY v3', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '12px',
       color: '#87d8ea'
@@ -209,7 +209,7 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.add.text(
       805,
       592,
-      'Тест: препятствия + подсказка хода\nsolid-клетки перекрывают поток рыб',
+      'Тест: читаемость рыб под blockers\nвуалехвост / клоун разведены визуально',
       {
         fontFamily: 'Arial, sans-serif',
         fontSize: '12px',
@@ -305,6 +305,8 @@ export default class Match3MvpScene extends Phaser.Scene {
       frozenByBlocker: false
     };
 
+    this.applyFishReadability(piece);
+
     if (spawnY !== null && spawnY !== y) {
       this.tweens.add({
         targets: sprite,
@@ -322,6 +324,25 @@ export default class Match3MvpScene extends Phaser.Scene {
     return piece;
   }
 
+  applyFishReadability(piece) {
+    const sprite = piece?.sprite;
+    if (!sprite?.active) return;
+
+    sprite.clearTint();
+
+    // TEST: keep clownfish naturally orange-white, push veiltail toward a lighter golden read.
+    // Phaser tint is intentionally subtle so we preserve the original painted details.
+    if (piece.type === 'fish_01_goldfish') {
+      sprite.setTint(0xfff0bd);
+    }
+
+    // Slightly cooler/darker coral on clownfish increases separation from veiltail
+    // without changing its recognizable white/black pattern.
+    if (piece.type === 'fish_06_clownfish') {
+      sprite.setTint(0xffc7bd);
+    }
+  }
+
   startIdle(piece) {
     const sprite = piece?.sprite;
     if (!sprite?.active) return;
@@ -333,7 +354,9 @@ export default class Match3MvpScene extends Phaser.Scene {
       sprite.setPosition(frozenCenter.x, frozenCenter.y);
       sprite.setAngle(0);
       sprite.setScale(BASE_SCALE);
-      sprite.setAlpha(0.96);
+      sprite.setAlpha(1);
+      sprite.setDepth(17);
+      this.applyFishReadability(piece);
       return;
     }
 
@@ -342,6 +365,8 @@ export default class Match3MvpScene extends Phaser.Scene {
     sprite.setAngle(0);
     sprite.setAlpha(0.96);
     sprite.setScale(BASE_SCALE);
+    sprite.setDepth(10);
+    this.applyFishReadability(piece);
 
     const yMax = Phaser.Math.FloatBetween(1.8, 3.2);
     const angleMax = Phaser.Math.FloatBetween(0.45, 0.90);
@@ -410,7 +435,9 @@ export default class Match3MvpScene extends Phaser.Scene {
       piece.sprite.setPosition(x, y);
       piece.sprite.setAngle(0);
       piece.sprite.setScale(BASE_SCALE);
-      piece.sprite.setAlpha(0.96);
+      piece.sprite.setAlpha(piece.frozenByBlocker ? 1 : 0.96);
+      piece.sprite.setDepth(piece.frozenByBlocker ? 17 : 10);
+      this.applyFishReadability(piece);
     }
   }
 
@@ -459,9 +486,11 @@ export default class Match3MvpScene extends Phaser.Scene {
       .setScale(blockerScale[type] || 0.178)
       .setDepth(18);
 
-    if (type === 'sand') sprite.setAlpha(0.84);
-    if (type === 'ice') sprite.setAlpha(0.88);
-    if (type === 'net') sprite.setAlpha(0.94);
+    // Overlay blockers must communicate capture without hiding the fish identity.
+    if (type === 'seaweed') sprite.setAlpha(0.74);
+    if (type === 'sand') sprite.setAlpha(0.60);
+    if (type === 'ice') sprite.setAlpha(0.64);
+    if (type === 'net') sprite.setAlpha(0.70);
 
     if (type === 'seaweed') {
       this.tweens.add({
@@ -514,6 +543,9 @@ export default class Match3MvpScene extends Phaser.Scene {
 
         if (frozen) {
           this.stopIdle(piece, true);
+        } else {
+          piece.sprite?.setDepth(10);
+          this.applyFishReadability(piece);
         }
       }
     }
@@ -591,6 +623,8 @@ export default class Match3MvpScene extends Phaser.Scene {
     const piece = this.board[row]?.[col];
     if (piece && cfg.layer === 'overlay') {
       piece.frozenByBlocker = false;
+      piece.sprite?.setDepth(10);
+      this.applyFishReadability(piece);
     }
 
     this.tweens.add({
@@ -1608,6 +1642,7 @@ export default class Match3MvpScene extends Phaser.Scene {
           frozenByBlocker: false
         };
 
+        this.applyFishReadability(piece);
         this.board[row][col] = piece;
 
         tweens.push(
