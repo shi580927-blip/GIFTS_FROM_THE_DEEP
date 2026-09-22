@@ -7,10 +7,7 @@ const FISH_TYPES = [
   'fish_06_clownfish'
 ];
 
-const MICRO_TAIL_FISH = new Set([
-  'fish_01_goldfish',
-  'fish_06_clownfish'
-]);
+const GOLD_FISH = 'fish_01_goldfish';
 
 const BASE_SCALE = 0.19;
 
@@ -306,24 +303,29 @@ export default class Match3MvpScene extends Phaser.Scene {
     sprite.setAlpha(0.96);
     sprite.setScale(BASE_SCALE);
 
+    const yMax = Phaser.Math.FloatBetween(1.8, 3.2);
+    const angleMax = Phaser.Math.FloatBetween(0.45, 0.90);
+    const minDuration = Phaser.Math.Between(3200, 3900);
+    const maxDuration = Phaser.Math.Between(4700, 5600);
+
     const cycle = () => {
       if (!sprite.active || this.busy) return;
 
       const flip = sprite.flipX ? -1 : 1;
-      const targetY = y + Phaser.Math.FloatBetween(-0.55, 0.55);
-      const targetAngle = flip * Phaser.Math.FloatBetween(-0.28, 0.28);
+      const targetY = y + Phaser.Math.FloatBetween(-yMax, yMax);
+      const targetAngle = flip * Phaser.Math.FloatBetween(-angleMax, angleMax);
 
       this.tweens.add({
         targets: sprite,
         y: targetY,
         angle: targetAngle,
-        duration: Phaser.Math.Between(2600, 3900),
+        duration: Phaser.Math.Between(minDuration, maxDuration),
         ease: 'Sine.easeInOut',
         onComplete: () => {
           if (!sprite.active || this.busy) return;
 
           piece.idleTimer = this.time.delayedCall(
-            Phaser.Math.Between(520, 980),
+            Phaser.Math.Between(260, 900),
             () => {
               if (!sprite.active || this.busy) return;
 
@@ -331,12 +333,12 @@ export default class Match3MvpScene extends Phaser.Scene {
                 targets: sprite,
                 y,
                 angle: 0,
-                duration: Phaser.Math.Between(2200, 3400),
+                duration: Phaser.Math.Between(2800, 4300),
                 ease: 'Sine.easeInOut',
                 onComplete: () => {
                   if (!sprite.active || this.busy) return;
                   piece.idleTimer = this.time.delayedCall(
-                    Phaser.Math.Between(500, 950),
+                    Phaser.Math.Between(220, 850),
                     cycle
                   );
                 }
@@ -348,7 +350,7 @@ export default class Match3MvpScene extends Phaser.Scene {
     };
 
     piece.idleTimer = this.time.delayedCall(
-      Phaser.Math.Between(250, 1100),
+      Phaser.Math.Between(0, 1800),
       cycle
     );
   }
