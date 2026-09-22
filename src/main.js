@@ -1,7 +1,7 @@
 import TestFishAtlasScene from './scenes/TestFishAtlasScene.js?v=20260921-static-sway-v3';
 import SpecialElementsTestScene from './scenes/SpecialElementsTestScene.js?v=20260921-specials-v6';
 import BlockerTestScene from './scenes/BlockerTestScene.js?v=20260922-blocker-fx-v1';
-import Match3MvpScene from './scenes/Match3MvpScene.js?v=20260922-playable-v7';
+import Match3MvpScene from './scenes/Match3MvpScene.js?v=20260922-playable-v8';
 
 const params = new URLSearchParams(window.location.search);
 const view = params.get('view');
