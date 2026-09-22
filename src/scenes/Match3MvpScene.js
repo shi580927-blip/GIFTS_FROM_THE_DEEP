@@ -559,6 +559,8 @@ export default class Match3MvpScene extends Phaser.Scene {
 
       const aStart = { x: a.sprite.x, y: a.sprite.y };
       const bStart = { x: b.sprite.x, y: b.sprite.y };
+      const aOriginalFlip = a.sprite.flipX;
+      const bOriginalFlip = b.sprite.flipX;
 
       this.board[r1][c1] = b;
       this.board[r2][c2] = a;
@@ -572,95 +574,103 @@ export default class Match3MvpScene extends Phaser.Scene {
       const bEnd = this.cellCenter(b.row, b.col);
 
       const horizontal = r1 === r2;
-      const arc = Phaser.Math.Between(8, 13);
+      const arc = Phaser.Math.Between(7, 12);
 
       const aControl = horizontal
-        ? {
-            x: (aStart.x + aEnd.x) / 2,
-            y: (aStart.y + aEnd.y) / 2 + arc
-          }
-        : {
-            x: (aStart.x + aEnd.x) / 2 + arc,
-            y: (aStart.y + aEnd.y) / 2
-          };
+        ? { x: (aStart.x + aEnd.x) / 2, y: (aStart.y + aEnd.y) / 2 + arc }
+        : { x: (aStart.x + aEnd.x) / 2 + arc, y: (aStart.y + aEnd.y) / 2 };
 
       const bControl = horizontal
-        ? {
-            x: (bStart.x + bEnd.x) / 2,
-            y: (bStart.y + bEnd.y) / 2 - arc
-          }
-        : {
-            x: (bStart.x + bEnd.x) / 2 - arc,
-            y: (bStart.y + bEnd.y) / 2
-          };
-
-      const aDirX = Math.sign(aEnd.x - aStart.x);
-      const aDirY = Math.sign(aEnd.y - aStart.y);
-      const bDirX = Math.sign(bEnd.x - bStart.x);
-      const bDirY = Math.sign(bEnd.y - bStart.y);
-
-      const aTilt = horizontal
-        ? aDirX * 8
-        : -aDirY * 7;
-
-      const bTilt = horizontal
-        ? bDirX * 8
-        : -bDirY * 7;
-
-      this.playSwapTrail(aStart.x, aStart.y);
-      this.playSwapTrail(bStart.x, bStart.y);
-
-      this.time.delayedCall(95, () => {
-        this.playSwapTrail(aControl.x, aControl.y);
-        this.playSwapTrail(bControl.x, bControl.y);
-      });
+        ? { x: (bStart.x + bEnd.x) / 2, y: (bStart.y + bEnd.y) / 2 - arc }
+        : { x: (bStart.x + bEnd.x) / 2 - arc, y: (bStart.y + bEnd.y) / 2 };
 
       let done = 0;
-      const onDone = piece => {
-        piece.sprite.setAngle(0);
-        piece.sprite.setScale(BASE_SCALE);
-        piece.sprite.setAlpha(0.96);
 
-        const end = this.cellCenter(piece.row, piece.col);
-        piece.sprite.setPosition(end.x, end.y);
-
-        done += 1;
-        if (done === 2) resolve();
-      };
-
-      const animatePiece = (piece, start, control, end, tilt) => {
+      const finish = (piece, end, originalFlip, dx, dy) => {
         const sprite = piece.sprite;
 
-        this.tweens.addCounter({
-          from: 0,
-          to: 1,
-          duration: 285,
-          ease: 'Sine.easeInOut',
-          onUpdate: tween => {
-            const t = tween.getValue();
-            const inv = 1 - t;
+        this.tweens.add({
+          targets: sprite,
+          angle: 0,
+          scaleX: BASE_SCALE,
+          scaleY: BASE_SCALE,
+          duration: 95,
+          ease: 'Sine.easeOut',
+          onComplete: () => {
+            sprite.setPosition(end.x, end.y);
+            sprite.setAlpha(0.96);
 
-            sprite.x =
-              inv * inv * start.x +
-              2 * inv * t * control.x +
-              t * t * end.x;
+            if (Math.abs(dx) > Math.abs(dy)) {
+              sprite.setFlipX(dx < 0);
+            } else {
+              sprite.setFlipX(originalFlip);
+            }
 
-            sprite.y =
-              inv * inv * start.y +
-              2 * inv * t * control.y +
-              t * t * end.y;
-
-            sprite.angle = Math.sin(Math.PI * t) * tilt;
-
-            const dive = Math.sin(Math.PI * t);
-            sprite.setScale(BASE_SCALE * (1 - 0.07 * dive));
-          },
-          onComplete: () => onDone(piece)
+            done += 1;
+            if (done === 2) resolve();
+          }
         });
       };
 
-      animatePiece(a, aStart, aControl, aEnd, aTilt);
-      animatePiece(b, bStart, bControl, bEnd, bTilt);
+      const swim = (piece, start, control, end, originalFlip) => {
+        const sprite = piece.sprite;
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const heading = Phaser.Math.RadToDeg(Math.atan2(dy, dx));
+
+        // During the move the fish really turns toward its destination.
+        sprite.setFlipX(false);
+
+        this.tweens.add({
+          targets: sprite,
+          angle: heading,
+          scaleX: BASE_SCALE * 0.98,
+          scaleY: BASE_SCALE * 0.98,
+          duration: 75,
+          ease: 'Sine.easeOut',
+          onComplete: () => {
+            this.playSwapTrail(start.x, start.y);
+
+            this.tweens.addCounter({
+              from: 0,
+              to: 1,
+              duration: 260,
+              ease: 'Sine.easeInOut',
+              onUpdate: tween => {
+                const t = tween.getValue();
+                const inv = 1 - t;
+
+                sprite.x =
+                  inv * inv * start.x +
+                  2 * inv * t * control.x +
+                  t * t * end.x;
+
+                sprite.y =
+                  inv * inv * start.y +
+                  2 * inv * t * control.y +
+                  t * t * end.y;
+
+                const swimPulse = Math.sin(Math.PI * t);
+                sprite.setScale(
+                  BASE_SCALE * (0.98 - swimPulse * 0.045)
+                );
+
+                if (t > 0.38 && t < 0.52 && !piece.midTrailPlayed) {
+                  piece.midTrailPlayed = true;
+                  this.playSwapTrail(sprite.x, sprite.y);
+                }
+              },
+              onComplete: () => {
+                piece.midTrailPlayed = false;
+                finish(piece, end, originalFlip, dx, dy);
+              }
+            });
+          }
+        });
+      };
+
+      swim(a, aStart, aControl, aEnd, aOriginalFlip);
+      swim(b, bStart, bControl, bEnd, bOriginalFlip);
     });
   }
 
