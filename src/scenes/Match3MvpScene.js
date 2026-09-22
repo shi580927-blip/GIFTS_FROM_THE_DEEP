@@ -887,133 +887,291 @@ export default class Match3MvpScene extends Phaser.Scene {
     center.x /= items.length;
     center.y /= items.length;
 
-    this.playSchoolDiveFx(center.x, center.y, items.length, cascade);
+    // A match should feel like the fish have been startled:
+    // one dense cloud of tiny bubbles, then every fish bolts away
+    // in its own direction and fades while swimming out of the board.
+    this.playEscapeBubbleCloud(
+      center.x,
+      center.y,
+      Phaser.Math.Clamp(10 + items.length * 3, 16, 26),
+      30
+    );
 
-    let phaseOneRemaining = items.length;
-
-    const startDivePhase = () => {
-      let phaseTwoRemaining = items.length;
-
-      items.forEach((item, index) => {
-        const sprite = item.piece.sprite;
-        const side = sprite.x < center.x ? -1 : 1;
-        const tilt = side * Phaser.Math.Between(6, 10);
-
-        this.tweens.add({
-          targets: sprite,
-          x: sprite.x + (center.x - sprite.x) * 0.16,
-          y: sprite.y + Phaser.Math.Between(10, 15),
-          angle: tilt,
-          scaleX: BASE_SCALE * 0.60,
-          scaleY: BASE_SCALE * 0.60,
-          alpha: 0,
-          duration: 190 + index * 12,
-          ease: 'Sine.easeIn',
-          onComplete: () => {
-            phaseTwoRemaining -= 1;
-            if (phaseTwoRemaining === 0) {
-              onComplete();
-            }
-          }
-        });
-      });
-    };
+    const globalAngleOffset = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    let remaining = items.length;
 
     items.forEach((item, index) => {
-      const sprite = item.piece.sprite;
+      const piece = item.piece;
+      const sprite = piece.sprite;
 
-      if (item.piece.idleTimer) {
-        item.piece.idleTimer.remove(false);
-        item.piece.idleTimer = null;
+      if (piece.idleTimer) {
+        piece.idleTimer.remove(false);
+        piece.idleTimer = null;
+      }
+
+      if (piece.tailTimer) {
+        piece.tailTimer.remove(false);
+        piece.tailTimer = null;
       }
 
       this.tweens.killTweensOf(sprite);
 
-      const dx = Phaser.Math.Clamp(
-        (center.x - sprite.x) * 0.14,
-        -9,
-        9
+      const baseAngle =
+        globalAngleOffset +
+        (Math.PI * 2 * index) / Math.max(1, items.length);
+
+      const escapeAngle =
+        baseAngle + Phaser.Math.FloatBetween(-0.28, 0.28);
+
+      const direction = {
+        x: Math.cos(escapeAngle),
+        y: Math.sin(escapeAngle)
+      };
+
+      const target = this.getEscapeTarget(
+        sprite.x,
+        sprite.y,
+        direction.x,
+        direction.y
       );
 
-      const dy = Phaser.Math.Clamp(
-        (center.y - sprite.y) * 0.14,
-        -7,
-        7
+      const controlDistance = Phaser.Math.Between(36, 64);
+      const curveSide = index % 2 === 0 ? 1 : -1;
+
+      const control = {
+        x:
+          (sprite.x + target.x) / 2 -
+          direction.y * controlDistance * curveSide,
+        y:
+          (sprite.y + target.y) / 2 +
+          direction.x * controlDistance * curveSide
+      };
+
+      const faceLeft = direction.x < 0;
+      const travelAngle = Phaser.Math.RadToDeg(
+        Math.atan2(direction.y, Math.abs(direction.x) + 0.0001)
       );
+
+      // Tiny first jolt: the fish "startles" before bolting away.
+      sprite.setFlipX(faceLeft);
 
       this.tweens.add({
         targets: sprite,
-        x: sprite.x + dx,
-        y: sprite.y + dy,
-        angle: (index % 2 === 0 ? 1 : -1) * Phaser.Math.Between(3, 6),
-        duration: 105,
-        ease: 'Sine.easeOut',
+        x: sprite.x - direction.x * Phaser.Math.Between(3, 7),
+        y: sprite.y - direction.y * Phaser.Math.Between(3, 7),
+        angle: -travelAngle * 0.20,
+        scaleX: BASE_SCALE * 1.04,
+        scaleY: BASE_SCALE * 1.04,
+        duration: Phaser.Math.Between(65, 95),
+        ease: 'Quad.easeOut',
         onComplete: () => {
-          phaseOneRemaining -= 1;
-          if (phaseOneRemaining === 0) {
-            startDivePhase();
+          if (!sprite.active) {
+            remaining -= 1;
+            if (remaining === 0) onComplete();
+            return;
           }
+
+          const start = {
+            x: sprite.x,
+            y: sprite.y
+          };
+
+          sprite.setAngle(travelAngle);
+          piece.escapeTrailStep = 0;
+
+          this.playEscapeBubbleBurst(
+            start.x,
+            start.y,
+            Phaser.Math.Between(4, 6)
+          );
+
+          this.tweens.addCounter({
+            from: 0,
+            to: 1,
+            duration: Phaser.Math.Between(540, 760),
+            ease: 'Sine.easeIn',
+            onUpdate: tween => {
+              if (!sprite.active) return;
+
+              const t = tween.getValue();
+              const inv = 1 - t;
+
+              sprite.x =
+                inv * inv * start.x +
+                2 * inv * t * control.x +
+                t * t * target.x;
+
+              sprite.y =
+                inv * inv * start.y +
+                2 * inv * t * control.y +
+                t * t * target.y;
+
+              const tailOut = Math.sin(Math.PI * t);
+              sprite.setScale(
+                BASE_SCALE * (1 - 0.10 * tailOut - 0.18 * t)
+              );
+
+              // Fade only after the fish has visibly started escaping.
+              if (t > 0.48) {
+                sprite.setAlpha(
+                  Phaser.Math.Clamp(
+                    0.96 * (1 - (t - 0.48) / 0.52),
+                    0,
+                    0.96
+                  )
+                );
+              }
+
+              const thresholds = [0.18, 0.38, 0.58, 0.76];
+              if (
+                piece.escapeTrailStep < thresholds.length &&
+                t >= thresholds[piece.escapeTrailStep]
+              ) {
+                this.playEscapeBubbleBurst(
+                  sprite.x,
+                  sprite.y,
+                  Phaser.Math.Between(3, 5)
+                );
+                piece.escapeTrailStep += 1;
+              }
+            },
+            onComplete: () => {
+              if (sprite.active) {
+                this.playEscapeBubbleBurst(
+                  sprite.x,
+                  sprite.y,
+                  Phaser.Math.Between(4, 7)
+                );
+                sprite.setAlpha(0);
+              }
+
+              remaining -= 1;
+              if (remaining === 0) onComplete();
+            }
+          });
         }
       });
     });
   }
 
-  playSchoolDiveFx(x, y, count, cascade) {
-    const ring = this.add.ellipse(x, y + 7, 22, 12, 0x000000, 0)
-      .setStrokeStyle(2, 0xb9f5ff, 0.42)
-      .setDepth(25);
+  getEscapeTarget(x, y, dx, dy) {
+    const left =
+      this.boardX - this.cellSize / 2 - Phaser.Math.Between(70, 120);
+    const right =
+      this.boardX +
+      (this.cols - 1) * this.cellSize +
+      this.cellSize / 2 +
+      Phaser.Math.Between(70, 120);
+    const top =
+      this.boardY - this.cellSize / 2 - Phaser.Math.Between(70, 110);
+    const bottom =
+      this.boardY +
+      (this.rows - 1) * this.cellSize +
+      this.cellSize / 2 +
+      Phaser.Math.Between(70, 120);
 
-    this.tweens.add({
-      targets: ring,
-      scaleX: 3.0 + Math.min(0.5, cascade * 0.08),
-      scaleY: 2.1 + Math.min(0.35, cascade * 0.05),
-      alpha: 0,
-      duration: 380,
-      ease: 'Sine.easeOut',
-      onComplete: () => ring.destroy()
-    });
+    const distances = [];
 
-    const bubbleCount = Phaser.Math.Clamp(5 + count, 7, 12);
-
-    for (let i = 0; i < bubbleCount; i += 1) {
-      const bubble = this.add.circle(
-        x + Phaser.Math.Between(-22, 22),
-        y + Phaser.Math.Between(-5, 16),
-        Phaser.Math.FloatBetween(1.5, 3.8),
-        0xe4fbff,
-        0.15
-      )
-        .setStrokeStyle(1, 0xe4fbff, 0.52)
-        .setDepth(27);
-
-      this.tweens.add({
-        targets: bubble,
-        x: bubble.x + Phaser.Math.Between(-9, 9),
-        y: bubble.y - Phaser.Math.Between(22, 48),
-        alpha: 0,
-        duration: Phaser.Math.Between(330, 560),
-        ease: 'Sine.easeOut',
-        onComplete: () => bubble.destroy()
-      });
+    if (dx > 0.0001) {
+      distances.push((right - x) / dx);
+    } else if (dx < -0.0001) {
+      distances.push((left - x) / dx);
     }
 
-    const flash = this.add.ellipse(
+    if (dy > 0.0001) {
+      distances.push((bottom - y) / dy);
+    } else if (dy < -0.0001) {
+      distances.push((top - y) / dy);
+    }
+
+    const positive = distances.filter(distance => distance > 0);
+    const exitDistance =
+      positive.length > 0
+        ? Math.min(...positive)
+        : Phaser.Math.Between(260, 340);
+
+    const travel =
+      exitDistance + Phaser.Math.Between(55, 125);
+
+    return {
+      x: x + dx * travel,
+      y: y + dy * travel
+    };
+  }
+
+  playEscapeBubbleCloud(x, y, count = 18, spread = 28) {
+    for (let i = 0; i < count; i += 1) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const distance = Phaser.Math.FloatBetween(3, spread);
+
+      this.spawnTinyEscapeBubble(
+        x + Math.cos(angle) * distance,
+        y + Math.sin(angle) * distance * 0.65,
+        Phaser.Math.Between(-12, 12),
+        Phaser.Math.Between(20, 48),
+        Phaser.Math.Between(330, 620)
+      );
+    }
+
+    const mist = this.add.ellipse(
       x,
-      y + 4,
-      36,
-      22,
-      0xcff8ff,
-      0.12
+      y + 3,
+      46,
+      28,
+      0xd8f9ff,
+      0.10
     ).setDepth(24);
 
     this.tweens.add({
-      targets: flash,
+      targets: mist,
       scaleX: 1.8,
-      scaleY: 1.5,
+      scaleY: 1.45,
       alpha: 0,
-      duration: 250,
-      ease: 'Quad.easeOut',
-      onComplete: () => flash.destroy()
+      duration: 300,
+      ease: 'Sine.easeOut',
+      onComplete: () => mist.destroy()
+    });
+  }
+
+  playEscapeBubbleBurst(x, y, count = 4) {
+    for (let i = 0; i < count; i += 1) {
+      this.spawnTinyEscapeBubble(
+        x + Phaser.Math.Between(-7, 7),
+        y + Phaser.Math.Between(-5, 6),
+        Phaser.Math.Between(-9, 9),
+        Phaser.Math.Between(14, 34),
+        Phaser.Math.Between(260, 480)
+      );
+    }
+  }
+
+  spawnTinyEscapeBubble(x, y, driftX, rise, duration) {
+    const radius = Phaser.Math.FloatBetween(0.8, 2.5);
+
+    const bubble = this.add.circle(
+      x,
+      y,
+      radius,
+      0xe9fcff,
+      Phaser.Math.FloatBetween(0.10, 0.20)
+    )
+      .setStrokeStyle(
+        Math.max(0.7, radius * 0.34),
+        0xe9fcff,
+        Phaser.Math.FloatBetween(0.34, 0.58)
+      )
+      .setDepth(28);
+
+    this.tweens.add({
+      targets: bubble,
+      x: bubble.x + driftX,
+      y: bubble.y - rise,
+      alpha: 0,
+      scaleX: Phaser.Math.FloatBetween(0.75, 1.25),
+      scaleY: Phaser.Math.FloatBetween(0.75, 1.25),
+      duration,
+      ease: 'Sine.easeOut',
+      onComplete: () => bubble.destroy()
     });
   }
 
