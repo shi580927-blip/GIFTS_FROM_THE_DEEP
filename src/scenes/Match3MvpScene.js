@@ -109,7 +109,7 @@ export default class Match3MvpScene extends Phaser.Scene {
       color: '#e6fbff'
     }).setOrigin(0.5);
 
-    this.add.text(805, 124, 'PLAYABLE MVP · ANIMATION v2', {
+    this.add.text(805, 124, 'PLAYABLE MVP · MATCH CLEAR v4', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '12px',
       color: '#87d8ea'
@@ -176,7 +176,7 @@ export default class Match3MvpScene extends Phaser.Scene {
     this.add.text(
       805,
       592,
-      'Тест: тихий idle · нырок при swap\nстайка + пузыри при совпадении',
+      'Тест: мягкий idle · плавание при swap\nиспуганный уход · лавирование · пузыри',
       {
         fontFamily: 'Arial, sans-serif',
         fontSize: '12px',
@@ -932,34 +932,6 @@ export default class Match3MvpScene extends Phaser.Scene {
         direction.y
       );
 
-      const travelX = target.x - sprite.x;
-      const travelY = target.y - sprite.y;
-      const normal = {
-        x: -direction.y,
-        y: direction.x
-      };
-
-      const sideSign = index % 2 === 0 ? 1 : -1;
-      const sideA = Phaser.Math.Between(24, 42) * sideSign;
-      const sideB = Phaser.Math.Between(18, 36) * -sideSign;
-
-      const cp1 = {
-        x: sprite.x + travelX * 0.28 + normal.x * sideA,
-        y: sprite.y + travelY * 0.28 + normal.y * sideA
-      };
-
-      const cp2 = {
-        x: sprite.x + travelX * 0.66 + normal.x * sideB,
-        y: sprite.y + travelY * 0.66 + normal.y * sideB
-      };
-
-      const curve = new Phaser.Curves.CubicBezier(
-        new Phaser.Math.Vector2(sprite.x, sprite.y),
-        new Phaser.Math.Vector2(cp1.x, cp1.y),
-        new Phaser.Math.Vector2(cp2.x, cp2.y),
-        new Phaser.Math.Vector2(target.x, target.y)
-      );
-
       sprite.setFlipX(direction.x < 0);
 
       this.tweens.add({
@@ -977,9 +949,42 @@ export default class Match3MvpScene extends Phaser.Scene {
             return;
           }
 
+          const start = {
+            x: sprite.x,
+            y: sprite.y
+          };
+
+          const travelX = target.x - start.x;
+          const travelY = target.y - start.y;
+          const normal = {
+            x: -direction.y,
+            y: direction.x
+          };
+
+          const sideSign = index % 2 === 0 ? 1 : -1;
+          const sideA = Phaser.Math.Between(24, 42) * sideSign;
+          const sideB = Phaser.Math.Between(18, 36) * -sideSign;
+
+          const cp1 = {
+            x: start.x + travelX * 0.28 + normal.x * sideA,
+            y: start.y + travelY * 0.28 + normal.y * sideA
+          };
+
+          const cp2 = {
+            x: start.x + travelX * 0.66 + normal.x * sideB,
+            y: start.y + travelY * 0.66 + normal.y * sideB
+          };
+
+          const curve = new Phaser.Curves.CubicBezier(
+            new Phaser.Math.Vector2(start.x, start.y),
+            new Phaser.Math.Vector2(cp1.x, cp1.y),
+            new Phaser.Math.Vector2(cp2.x, cp2.y),
+            new Phaser.Math.Vector2(target.x, target.y)
+          );
+
           this.playEscapeBubbleBurst(
-            sprite.x,
-            sprite.y,
+            start.x,
+            start.y,
             Phaser.Math.Between(5, 7)
           );
 
