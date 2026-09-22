@@ -7,6 +7,11 @@ const FISH_TYPES = [
   'fish_06_clownfish'
 ];
 
+const FRAME_ANIMATED_FISH = new Set([
+  'fish_01_goldfish',
+  'fish_06_clownfish'
+]);
+
 export default class Match3MvpScene extends Phaser.Scene {
   constructor() {
     super('Match3MvpScene');
@@ -246,6 +251,7 @@ export default class Match3MvpScene extends Phaser.Scene {
     };
 
     this.startIdle(piece);
+    this.startFrameAnimation(piece);
 
     if (spawnY !== null && spawnY !== y) {
       this.tweens.add({
@@ -266,25 +272,81 @@ export default class Match3MvpScene extends Phaser.Scene {
     sprite.setPosition(x, y);
     sprite.setAngle(0);
 
+    const frameAnimated = FRAME_ANIMATED_FISH.has(piece.type);
+    const yMax = frameAnimated
+      ? 0.35
+      : Phaser.Math.FloatBetween(3.6, 5.2);
+    const angleMax = frameAnimated
+      ? 0.08
+      : Phaser.Math.FloatBetween(1.05, 1.55);
+    const minDuration = frameAnimated ? 3400 : 2600;
+    const maxDuration = frameAnimated ? 5600 : 4400;
+
     const cycle = () => {
       if (!sprite.active || this.busy) return;
       const flip = sprite.flipX ? -1 : 1;
 
       this.tweens.add({
         targets: sprite,
-        y: y + Phaser.Math.FloatBetween(-3.2, 3.2),
-        angle: flip * Phaser.Math.FloatBetween(-0.9, 0.9),
-        duration: Phaser.Math.Between(2600, 4200),
+        y: y + Phaser.Math.FloatBetween(-yMax, yMax),
+        angle: flip * Phaser.Math.FloatBetween(-angleMax, angleMax),
+        duration: Phaser.Math.Between(minDuration, maxDuration),
         yoyo: true,
         ease: 'Sine.easeInOut',
         onComplete: () => {
           if (!sprite.active || this.busy) return;
-          this.time.delayedCall(Phaser.Math.Between(100, 480), cycle);
+          this.time.delayedCall(Phaser.Math.Between(120, 620), cycle);
         }
       });
     };
 
-    this.time.delayedCall(Phaser.Math.Between(0, 700), cycle);
+    this.time.delayedCall(Phaser.Math.Between(0, 900), cycle);
+  }
+
+  startFrameAnimation(piece) {
+    if (!FRAME_ANIMATED_FISH.has(piece.type)) return;
+
+    const sprite = piece.sprite;
+    if (piece.frameAnimationStarted) return;
+    piece.frameAnimationStarted = true;
+
+    const frames = Array.from(
+      { length: 7 },
+      (_, index) => piece.type + '_f' + String(index + 1).padStart(2, '0')
+    );
+
+    const runCycle = () => {
+      if (!sprite.active) return;
+
+      let step = 0;
+
+      const advance = () => {
+        if (!sprite.active) return;
+
+        sprite.setFrame(frames[step]);
+        step += 1;
+
+        if (step < frames.length) {
+          const delay = piece.type === 'fish_01_goldfish'
+            ? Phaser.Math.Between(290, 430)
+            : Phaser.Math.Between(300, 450);
+
+          this.time.delayedCall(delay, advance);
+        } else {
+          this.time.delayedCall(
+            Phaser.Math.Between(650, 1650),
+            runCycle
+          );
+        }
+      };
+
+      advance();
+    };
+
+    this.time.delayedCall(
+      Phaser.Math.Between(250, 2200),
+      runCycle
+    );
   }
 
   stopIdle(piece) {
@@ -613,6 +675,7 @@ export default class Match3MvpScene extends Phaser.Scene {
 
         const piece = { type, sprite, row, col };
         this.board[row][col] = piece;
+        this.startFrameAnimation(piece);
 
         tweens.push(new Promise(resolve => {
           this.tweens.add({
