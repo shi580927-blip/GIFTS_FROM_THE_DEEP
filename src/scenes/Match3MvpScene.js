@@ -887,14 +887,11 @@ export default class Match3MvpScene extends Phaser.Scene {
     center.x /= items.length;
     center.y /= items.length;
 
-    // A match should feel like the fish have been startled:
-    // one dense cloud of tiny bubbles, then every fish bolts away
-    // in its own direction and fades while swimming out of the board.
     this.playEscapeBubbleCloud(
       center.x,
       center.y,
-      Phaser.Math.Clamp(10 + items.length * 3, 16, 26),
-      30
+      Phaser.Math.Clamp(12 + items.length * 4, 18, 32),
+      34
     );
 
     const globalAngleOffset = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -921,7 +918,7 @@ export default class Match3MvpScene extends Phaser.Scene {
         (Math.PI * 2 * index) / Math.max(1, items.length);
 
       const escapeAngle =
-        baseAngle + Phaser.Math.FloatBetween(-0.28, 0.28);
+        baseAngle + Phaser.Math.FloatBetween(-0.32, 0.32);
 
       const direction = {
         x: Math.cos(escapeAngle),
@@ -935,34 +932,43 @@ export default class Match3MvpScene extends Phaser.Scene {
         direction.y
       );
 
-      const controlDistance = Phaser.Math.Between(36, 64);
-      const curveSide = index % 2 === 0 ? 1 : -1;
-
-      const control = {
-        x:
-          (sprite.x + target.x) / 2 -
-          direction.y * controlDistance * curveSide,
-        y:
-          (sprite.y + target.y) / 2 +
-          direction.x * controlDistance * curveSide
+      const travelX = target.x - sprite.x;
+      const travelY = target.y - sprite.y;
+      const normal = {
+        x: -direction.y,
+        y: direction.x
       };
 
-      const faceLeft = direction.x < 0;
-      const travelAngle = Phaser.Math.RadToDeg(
-        Math.atan2(direction.y, Math.abs(direction.x) + 0.0001)
+      const sideSign = index % 2 === 0 ? 1 : -1;
+      const sideA = Phaser.Math.Between(24, 42) * sideSign;
+      const sideB = Phaser.Math.Between(18, 36) * -sideSign;
+
+      const cp1 = {
+        x: sprite.x + travelX * 0.28 + normal.x * sideA,
+        y: sprite.y + travelY * 0.28 + normal.y * sideA
+      };
+
+      const cp2 = {
+        x: sprite.x + travelX * 0.66 + normal.x * sideB,
+        y: sprite.y + travelY * 0.66 + normal.y * sideB
+      };
+
+      const curve = new Phaser.Curves.CubicBezier(
+        new Phaser.Math.Vector2(sprite.x, sprite.y),
+        new Phaser.Math.Vector2(cp1.x, cp1.y),
+        new Phaser.Math.Vector2(cp2.x, cp2.y),
+        new Phaser.Math.Vector2(target.x, target.y)
       );
 
-      // Tiny first jolt: the fish "startles" before bolting away.
-      sprite.setFlipX(faceLeft);
+      sprite.setFlipX(direction.x < 0);
 
       this.tweens.add({
         targets: sprite,
-        x: sprite.x - direction.x * Phaser.Math.Between(3, 7),
-        y: sprite.y - direction.y * Phaser.Math.Between(3, 7),
-        angle: -travelAngle * 0.20,
+        x: sprite.x - direction.x * Phaser.Math.Between(4, 8),
+        y: sprite.y - direction.y * Phaser.Math.Between(4, 8),
         scaleX: BASE_SCALE * 1.04,
         scaleY: BASE_SCALE * 1.04,
-        duration: Phaser.Math.Between(65, 95),
+        duration: Phaser.Math.Between(80, 110),
         ease: 'Quad.easeOut',
         onComplete: () => {
           if (!sprite.active) {
@@ -971,58 +977,57 @@ export default class Match3MvpScene extends Phaser.Scene {
             return;
           }
 
-          const start = {
-            x: sprite.x,
-            y: sprite.y
-          };
-
-          sprite.setAngle(travelAngle);
-          piece.escapeTrailStep = 0;
-
           this.playEscapeBubbleBurst(
-            start.x,
-            start.y,
-            Phaser.Math.Between(4, 6)
+            sprite.x,
+            sprite.y,
+            Phaser.Math.Between(5, 7)
           );
+
+          piece.escapeTrailStep = 0;
 
           this.tweens.addCounter({
             from: 0,
             to: 1,
-            duration: Phaser.Math.Between(540, 760),
-            ease: 'Sine.easeIn',
+            duration: Phaser.Math.Between(980, 1320),
+            ease: 'Sine.easeInOut',
             onUpdate: tween => {
               if (!sprite.active) return;
 
               const t = tween.getValue();
-              const inv = 1 - t;
+              const point = curve.getPoint(t);
+              sprite.x = point.x;
+              sprite.y = point.y;
 
-              sprite.x =
-                inv * inv * start.x +
-                2 * inv * t * control.x +
-                t * t * target.x;
+              const lookAhead = Math.min(1, t + 0.025);
+              const nextPoint = curve.getPoint(lookAhead);
+              const dx = nextPoint.x - point.x;
+              const dy = nextPoint.y - point.y;
 
-              sprite.y =
-                inv * inv * start.y +
-                2 * inv * t * control.y +
-                t * t * target.y;
+              sprite.setFlipX(dx < 0);
 
-              const tailOut = Math.sin(Math.PI * t);
+              const angle = Phaser.Math.RadToDeg(
+                Math.atan2(dy, Math.abs(dx) + 0.0001)
+              );
+              sprite.setAngle(angle);
+
+              const pulse = Math.sin(Math.PI * t);
               sprite.setScale(
-                BASE_SCALE * (1 - 0.10 * tailOut - 0.18 * t)
+                BASE_SCALE * (1 - 0.05 * pulse - 0.14 * t)
               );
 
-              // Fade only after the fish has visibly started escaping.
-              if (t > 0.48) {
+              if (t > 0.58) {
                 sprite.setAlpha(
                   Phaser.Math.Clamp(
-                    0.96 * (1 - (t - 0.48) / 0.52),
+                    0.96 * (1 - (t - 0.58) / 0.42),
                     0,
                     0.96
                   )
                 );
+              } else {
+                sprite.setAlpha(0.96);
               }
 
-              const thresholds = [0.18, 0.38, 0.58, 0.76];
+              const thresholds = [0.14, 0.28, 0.44, 0.60, 0.76, 0.90];
               if (
                 piece.escapeTrailStep < thresholds.length &&
                 t >= thresholds[piece.escapeTrailStep]
@@ -1030,7 +1035,7 @@ export default class Match3MvpScene extends Phaser.Scene {
                 this.playEscapeBubbleBurst(
                   sprite.x,
                   sprite.y,
-                  Phaser.Math.Between(3, 5)
+                  Phaser.Math.Between(4, 7)
                 );
                 piece.escapeTrailStep += 1;
               }
@@ -1040,7 +1045,7 @@ export default class Match3MvpScene extends Phaser.Scene {
                 this.playEscapeBubbleBurst(
                   sprite.x,
                   sprite.y,
-                  Phaser.Math.Between(4, 7)
+                  Phaser.Math.Between(5, 8)
                 );
                 sprite.setAlpha(0);
               }
@@ -1056,19 +1061,19 @@ export default class Match3MvpScene extends Phaser.Scene {
 
   getEscapeTarget(x, y, dx, dy) {
     const left =
-      this.boardX - this.cellSize / 2 - Phaser.Math.Between(70, 120);
+      this.boardX - this.cellSize / 2 - Phaser.Math.Between(85, 145);
     const right =
       this.boardX +
       (this.cols - 1) * this.cellSize +
       this.cellSize / 2 +
-      Phaser.Math.Between(70, 120);
+      Phaser.Math.Between(85, 145);
     const top =
-      this.boardY - this.cellSize / 2 - Phaser.Math.Between(70, 110);
+      this.boardY - this.cellSize / 2 - Phaser.Math.Between(85, 135);
     const bottom =
       this.boardY +
       (this.rows - 1) * this.cellSize +
       this.cellSize / 2 +
-      Phaser.Math.Between(70, 120);
+      Phaser.Math.Between(85, 145);
 
     const distances = [];
 
@@ -1088,10 +1093,10 @@ export default class Match3MvpScene extends Phaser.Scene {
     const exitDistance =
       positive.length > 0
         ? Math.min(...positive)
-        : Phaser.Math.Between(260, 340);
+        : Phaser.Math.Between(280, 360);
 
     const travel =
-      exitDistance + Phaser.Math.Between(55, 125);
+      exitDistance + Phaser.Math.Between(70, 130);
 
     return {
       x: x + dx * travel,
@@ -1099,7 +1104,7 @@ export default class Match3MvpScene extends Phaser.Scene {
     };
   }
 
-  playEscapeBubbleCloud(x, y, count = 18, spread = 28) {
+  playEscapeBubbleCloud(x, y, count = 20, spread = 30) {
     for (let i = 0; i < count; i += 1) {
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
       const distance = Phaser.Math.FloatBetween(3, spread);
@@ -1107,46 +1112,46 @@ export default class Match3MvpScene extends Phaser.Scene {
       this.spawnTinyEscapeBubble(
         x + Math.cos(angle) * distance,
         y + Math.sin(angle) * distance * 0.65,
-        Phaser.Math.Between(-12, 12),
-        Phaser.Math.Between(20, 48),
-        Phaser.Math.Between(330, 620)
+        Phaser.Math.Between(-13, 13),
+        Phaser.Math.Between(22, 52),
+        Phaser.Math.Between(360, 700)
       );
     }
 
     const mist = this.add.ellipse(
       x,
       y + 3,
-      46,
-      28,
+      52,
+      30,
       0xd8f9ff,
       0.10
     ).setDepth(24);
 
     this.tweens.add({
       targets: mist,
-      scaleX: 1.8,
-      scaleY: 1.45,
+      scaleX: 1.9,
+      scaleY: 1.5,
       alpha: 0,
-      duration: 300,
+      duration: 360,
       ease: 'Sine.easeOut',
       onComplete: () => mist.destroy()
     });
   }
 
-  playEscapeBubbleBurst(x, y, count = 4) {
+  playEscapeBubbleBurst(x, y, count = 5) {
     for (let i = 0; i < count; i += 1) {
       this.spawnTinyEscapeBubble(
-        x + Phaser.Math.Between(-7, 7),
-        y + Phaser.Math.Between(-5, 6),
-        Phaser.Math.Between(-9, 9),
-        Phaser.Math.Between(14, 34),
-        Phaser.Math.Between(260, 480)
+        x + Phaser.Math.Between(-8, 8),
+        y + Phaser.Math.Between(-6, 6),
+        Phaser.Math.Between(-10, 10),
+        Phaser.Math.Between(16, 38),
+        Phaser.Math.Between(300, 520)
       );
     }
   }
 
   spawnTinyEscapeBubble(x, y, driftX, rise, duration) {
-    const radius = Phaser.Math.FloatBetween(0.8, 2.5);
+    const radius = Phaser.Math.FloatBetween(0.8, 2.3);
 
     const bubble = this.add.circle(
       x,
